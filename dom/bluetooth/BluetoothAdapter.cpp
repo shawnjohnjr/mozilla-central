@@ -693,75 +693,83 @@ BluetoothAdapter::SendFile(const nsAString& aDeviceAddress,
 NS_IMETHODIMP
 BluetoothAdapter::SendMetaData(const JS::Value& aValue, nsIDOMDOMRequest** aRequest)
 {
+  BT_LOG("%s", __FUNCTION__);
+
   JSContext* cx = nsContentUtils::GetSafeJSContext();
   BluetoothAvrcpMetaDataInfo metainfo;
   metainfo.Init(cx, &aValue);
-  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
-  if (!rs) {
-    NS_WARNING("No DOMRequest Service!");
-    return NS_ERROR_FAILURE;
-  }
-
-  BluetoothService* bs = BluetoothService::Get();
-  if (!bs) {
-    NS_WARNING("BluetoothService not available!");
-    return NS_ERROR_FAILURE;
-  }
 
   nsCOMPtr<nsIDOMDOMRequest> req;
-  nsresult rv = rs->CreateRequest(GetOwner(), getter_AddRefs(req));
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Can't create DOMRequest!");
+  nsresult rv;
+  rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
+  NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
+
+  nsRefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(req);
+
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  if(NS_FAILED(bs->UpdateMetaData(metainfo.title,
+                                  metainfo.artist,
+                                  metainfo.album,
+                                  metainfo.trackNumber,
+                                  metainfo.totalTracks,
+                                  metainfo.duration,
+                                  results))) {;
+    NS_WARNING("SendMetaData failed!");
     return NS_ERROR_FAILURE;
   }
 
-  nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
-  nsString connectedSinkAddress;
-  bs->UpdateMetaData(metainfo.title,
-                     metainfo.artist,
-                     metainfo.album,
-                     metainfo.trackNumber,
-                     metainfo.totalTracks,
-                     metainfo.duration,
-                     result);
-
+  req.forget(aRequest);
   return NS_OK;
 }
 
 NS_IMETHODIMP
 BluetoothAdapter::SendPlayStatus(const JS::Value& aValue, nsIDOMDOMRequest** aRequest)
 {
+  BT_LOG("%s", __FUNCTION__);
+
   JSContext* cx = nsContentUtils::GetSafeJSContext();
   BluetoothAvrcpPlayStatusInfo playstatus;
   playstatus.Init(cx, &aValue);
-  BT_LOG("%s", __FUNCTION__);
-  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
-  if (!rs) {
-    NS_WARNING("No DOMRequest Service!");
+
+  nsresult rv;
+  int leng = playstatus.length.ToInteger(&rv);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Failed to extract length");
     return NS_ERROR_FAILURE;
   }
 
-  BluetoothService* bs = BluetoothService::Get();
-  if (!bs) {
-    NS_WARNING("BluetoothService not available!");
+  int currposition = playstatus.position.ToInteger(&rv);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Failed to extract current position");
+    return NS_ERROR_FAILURE;
+  }
+
+  int currplaystatus = playstatus.playStatus.ToInteger(&rv);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Failed to extract current play status");
     return NS_ERROR_FAILURE;
   }
 
   nsCOMPtr<nsIDOMDOMRequest> req;
-  nsresult rv = rs->CreateRequest(GetOwner(), getter_AddRefs(req));
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Can't create DOMRequest!");
+  rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
+  NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
+
+  nsRefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(req);
+
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  if(NS_FAILED(bs->UpdatePlayStatus(leng,
+                                    currposition,
+                                    currplaystatus,
+                                    results))) {
+    NS_WARNING("SendPlayStatus failed!");
     return NS_ERROR_FAILURE;
   }
 
-  nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
-  nsString connectedSinkAddress;
-  nsresult rvs;
-
-  int leng = playstatus.length.ToInteger(&rvs);
-  int currposition = playstatus.position.ToInteger(&rvs);
-  int currplaystatus = playstatus.playStatus.ToInteger(&rvs);
-  bs->UpdatePlayStatus(leng, currposition, currplaystatus, result);
+  req.forget(aRequest);
   return NS_OK;
 }
 
@@ -769,29 +777,24 @@ NS_IMETHODIMP
 BluetoothAdapter::SendNotification(uint16_t aEventId, uint16_t aData, nsIDOMDOMRequest** aRequest)
 {
   BT_LOG("SendNotification");
-  nsCOMPtr<nsIDOMRequestService> rs = do_GetService("@mozilla.org/dom/dom-request-service;1");
-  if (!rs) {
-    NS_WARNING("No DOMRequest Service!");
-    return NS_ERROR_FAILURE;
-  }
-
-  BluetoothService* bs = BluetoothService::Get();
-  if (!bs) {
-    NS_WARNING("BluetoothService not available!");
-    return NS_ERROR_FAILURE;
-  }
+  BT_LOG("Notification: %d, %d", aEventId, aData);
 
   nsCOMPtr<nsIDOMDOMRequest> req;
-  nsresult rv = rs->CreateRequest(GetOwner(), getter_AddRefs(req));
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Can't create DOMRequest!");
+  nsresult rv;
+  rv = PrepareDOMRequest(GetOwner(), getter_AddRefs(req));
+  NS_ENSURE_SUCCESS(rv, NS_ERROR_FAILURE);
+
+  nsRefPtr<BluetoothVoidReplyRunnable> results =
+    new BluetoothVoidReplyRunnable(req);
+
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, NS_ERROR_FAILURE);
+  if(NS_FAILED(bs->UpdateNotification(aEventId, aData, results))) {
+    NS_WARNING("SendNotification failed!");
     return NS_ERROR_FAILURE;
   }
 
-  nsRefPtr<BluetoothVoidReplyRunnable> result = new BluetoothVoidReplyRunnable(req);
-  nsString connectedSinkAddress;
-  BT_LOG("Notification: %d, %d", aEventId, aData);
-  bs->UpdateNotification(aEventId, aData, result);
+  req.forget(aRequest);
   return NS_OK;
 }
 
