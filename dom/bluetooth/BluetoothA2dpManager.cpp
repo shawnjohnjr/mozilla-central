@@ -12,7 +12,13 @@
 #include "BluetoothUtils.h"
 #include <utils/String8.h>
 #include <android/log.h>
+
+#include "nsIAudioManager.h"
+#include "nsIObserverService.h"
+#include "mozilla/dom/bluetooth/BluetoothTypes.h"
+
 #define BLUETOOTH_A2DP_STATUS_CHANGED "bluetooth-a2dp-status-changed"
+
 USING_BLUETOOTH_NAMESPACE
 
 namespace {
@@ -68,30 +74,31 @@ SetParameter(const nsAString& aParameter)
   android::AudioSystem::setParameters(0, cmd);
 }
 
-static void
-SetupA2dpDevice(const nsAString& aDeviceAddress)
+void
+NotifyAudioManager(const nsAString& aAddress)
 {
-  SetParameter(NS_LITERAL_STRING("bluetooth_enabled=true"));
-  SetParameter(NS_LITERAL_STRING("A2dpSuspended=false"));
+  BT_LOG("[A2DP] %s", __FUNCTION__);
+  MOZ_ASSERT(NS_IsMainThread());
 
-  // Make a2dp device available
-  android::AudioSystem::
-    setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
-                             AUDIO_POLICY_DEVICE_STATE_AVAILABLE,
-                             NS_ConvertUTF16toUTF8(aDeviceAddress).get());
-}
+  nsCOMPtr<nsIObserverService> obs =
+    do_GetService("@mozilla.org/observer-service;1");
+  NS_ENSURE_TRUE_VOID(obs);
 
-static void
-TeardownA2dpDevice(const nsAString& aDeviceAddress)
-{
-  SetParameter(NS_LITERAL_STRING("bluetooth_enabled=false"));
-  SetParameter(NS_LITERAL_STRING("A2dpSuspended=true"));
-
-  // Make a2dp device unavailable
-  android::AudioSystem::
-    setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
-                             AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE,
-                             NS_ConvertUTF16toUTF8(aDeviceAddress).get());
+  if (aAddress.IsEmpty()) {
+    if (NS_FAILED(obs->NotifyObservers(nullptr,
+                                       BLUETOOTH_A2DP_STATUS_CHANGED,
+                                       nullptr))) {
+      NS_WARNING("Failed to notify bluetooth-a2dp-status-changed observsers!");
+      return;
+    }
+  } else {
+    if (NS_FAILED(obs->NotifyObservers(nullptr,
+                                       BLUETOOTH_A2DP_STATUS_CHANGED,
+                                       aAddress.BeginReading()))) {
+      NS_WARNING("Failed to notify bluetooth-a2dp-status-changed observsers!");
+      return;
+    }
+  }
 }
 
 static void
@@ -156,7 +163,7 @@ BluetoothA2dpManager::Connect(const nsAString& aDeviceAddress)
     return false;
   }
 
-  SetupA2dpDevice(aDeviceAddress);
+  NotifyAudioManager(aDeviceAddress);
   BT_LOG("[A2DP] Connect successfully!");
 
   mConnectedDeviceAddress = aDeviceAddress;
@@ -179,7 +186,7 @@ BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
     return;
   }
 
-  TeardownA2dpDevice(aDeviceAddress);
+  NotifyAudioManager(NS_LITERAL_STRING("")); 
   BT_LOG("[A2DP] Disconnect successfully!");
 
   mConnectedDeviceAddress.AssignLiteral(BLUETOOTH_INVALID_ADDRESS);
@@ -188,12 +195,15 @@ BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
 void
 BluetoothA2dpManager::NotifyMusicPlayStatus()
 {
-
   BT_LOG("%s", __FUNCTION__);
-  nsString message;
-  message.AssignLiteral("bluetooth-avrcp-playstatus");
-  if (!BroadcastSystemMessage(message))
+
+  nsAutoString type, name;
+  InfallibleTArray<BluetoothNamedValue> parameters;
+  type.AssignLiteral("bluetooth-avrcp-playstatus");
+
+  if (!BroadcastSystemMessage(type, parameters)) {
     BT_LOG("fail to send system message");
+  }
 }
 
 void
