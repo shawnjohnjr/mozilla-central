@@ -312,48 +312,6 @@ private:
   int mType;
 };
 
-class ConnectA2dpTask : public nsRunnable
-{
-public:
-  ConnectA2dpTask(const nsAString& aDeviceAddress) : mDeviceAddress(aDeviceAddress)
-  {
-  }
-
-  NS_IMETHOD Run()
-  {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
-    a2dp->Connect(mDeviceAddress);
-
-    return NS_OK;
-  }
-
-private:
-  nsString mDeviceAddress;
-};
-
-class DisconnectA2dpTask : public nsRunnable
-{
-public:
-  DisconnectA2dpTask(const nsAString& aDeviceAddress) : mDeviceAddress(aDeviceAddress)
-  {
-  }
-
-  NS_IMETHOD Run()
-  {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
-    a2dp->Disconnect(mDeviceAddress);
-
-    return NS_OK;
-  }
-
-private:
-  nsString mDeviceAddress;
-};
-
 void
 OpenScoSocket(const nsAString& aDeviceAddress)
 {
@@ -1375,8 +1333,10 @@ BluetoothHfpManager::OnConnectSuccess()
   mSocketStatus = GetConnectionStatus();
 
   NotifySettings();
-  nsRefPtr<nsRunnable> task = new ConnectA2dpTask(mDevicePath);
-  NS_DispatchToMainThread(task);
+
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  NS_ENSURE_TRUE_VOID(a2dp);
+  a2dp->Connect(mDevicePath); 
 }
 
 void
@@ -1412,8 +1372,9 @@ BluetoothHfpManager::OnDisconnect()
 
   CloseScoSocket();
 
-  nsRefPtr<nsRunnable> task = new DisconnectA2dpTask(mDevicePath);
-  NS_DispatchToMainThread(task);
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  NS_ENSURE_TRUE_VOID(a2dp);
+  a2dp->Disconnect(mDevicePath);
 
   Reset();
 }
