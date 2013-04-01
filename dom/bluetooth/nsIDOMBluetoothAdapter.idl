@@ -40,6 +40,10 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
   nsIDOMDOMRequest setPasskey(in DOMString aDeviceAddress, in unsigned long aPasskey);
   nsIDOMDOMRequest setPairingConfirmation(in DOMString aDeviceAddress, in bool aConfirmation);
   nsIDOMDOMRequest setAuthorization(in DOMString aDeviceAddress, in bool aAllow);
+  // AVRCP methods
+  nsIDOMDOMRequest sendMetaData(in jsval aValue);
+  nsIDOMDOMRequest sendPlayStatus(in jsval aValue);
+  nsIDOMDOMRequest sendNotification(in unsigned short aEventId, in unsigned short aData);
 
   /** 
    * Connect/Disconnect to a specific service of a target remote device. 
@@ -59,4 +63,42 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 
   // Fired when discoverying and any device is discovered.
   [implicit_jscontext] attribute jsval ondevicefound;
+};
+
+/**
+ * This property reflects AVRCP 1.3 Metadata, Music application pass these track
+ * information to Bluetooth. See AVRCP 1.3 Spec.
+ * Appendix E: List of Media Attributes
+ * title: Title of the media
+ * artist: Name of the artist
+ * album: Name of the album
+ * trackNumber: Number of the media (ex. Track number of the CD)
+ * totalTracks: Total number of the media (ex. Total track number of the CD)
+ * duration:Playing time in millisecond
+ * Genre (not implemented)
+ */
+dictionary BluetoothAvrcpMetaDataInfo
+{
+    DOMString album;
+    DOMString artist;
+    DOMString title;
+    DOMString isPlaying;
+    DOMString duration;
+    DOMString trackNumber;
+    DOMString totalTracks;
+};
+
+/**
+ * This property reflects AVRCP 1.3 PlayStatus, Music application pass these track
+ * information to Bluetooth. See AVRCP 1.3 Spec.
+ *
+ * length: The total length of the playing song in milliseconds
+ * position: The current position of the playing in milliseconds elapsed
+ * playStatus: Current Status of playing
+ */
+dictionary BluetoothAvrcpPlayStatusInfo
+{
+    DOMString length;
+    DOMString position;
+    DOMString playStatus;
 };

@@ -54,6 +54,7 @@ CPPSRCS += \
   ObexBase.cpp \
   BluetoothScoManager.cpp \
   BluetoothUuid.cpp \
+  BluetoothA2dpManager.cpp \
   $(NULL)
 
 ifdef MOZ_B2G_RIL
@@ -65,7 +66,9 @@ VPATH += \
   $(srcdir)/linux \
   $(srcdir)/gonk \
   $(NULL)
-LOCAL_INCLUDES += $(MOZ_DBUS_CFLAGS)
+LOCAL_INCLUDES += $(MOZ_DBUS_CFLAGS) \
+                  -I$(topsrcdir)/dom/system/gonk/android_audio \
+                  -I$(ANDROID_SOURCE)/frameworks/base/include
 CPPSRCS += \
   BluetoothDBusService.cpp \
   BluetoothGonkService.cpp \

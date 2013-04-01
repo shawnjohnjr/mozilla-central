@@ -146,6 +146,40 @@ public:
   ConfirmReceivingFile(const nsAString& aDeviceAddress, bool aConfirm,
                        BluetoothReplyRunnable* aRunnable);
 
+  virtual bool
+  ConnectSink(const nsAString& aDeviceObjectPath,
+              BluetoothReplyRunnable* aRunnable);
+
+  virtual bool
+  DisconnectSink(const nsAString& aDeviceObjectPath,
+                 BluetoothReplyRunnable* aRunnable);
+
+  virtual bool
+  UpdatePlayStatus(const uint32_t aDuration,
+                   const uint32_t aPosition,
+                   const uint32_t aPlayStatus,
+                   BluetoothReplyRunnable* aRunnable);
+  virtual bool
+  UpdateMetaData(const nsAString& aTitle,
+                 const nsAString& aArtist,
+                 const nsAString& aAlbum,
+                 const nsAString& aMediaNumber,
+                 const nsAString& aTotalMediaCount,
+                 const nsAString& aPlaytime,
+                 BluetoothReplyRunnable* aRunnable);
+  virtual bool
+  UpdateNotification(const uint32_t aEventid, const uint32_t aData,
+                     BluetoothReplyRunnable* aRunnable);
+  virtual bool
+  SuspendSink(const nsAString& aDeviceAddress,
+              BluetoothReplyRunnable* aRunnable);
+  virtual bool
+  ResumeSink(const nsAString& aDeviceAddress,
+             BluetoothReplyRunnable* aRunnable);
+  virtual void
+  GetConnectedSinkAddress(nsAString& aConnectedSinkAddr,
+                          BluetoothReplyRunnable* aRunnable);
+
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
                                   const char* aInterface,

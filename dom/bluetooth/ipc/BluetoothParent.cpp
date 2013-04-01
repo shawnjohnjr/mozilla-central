@@ -223,6 +223,13 @@ BluetoothParent::RecvPBluetoothRequestConstructor(
       return actor->DoRequest(aRequest.get_ConfirmReceivingFileRequest());
     case Request::TDenyReceivingFileRequest:
       return actor->DoRequest(aRequest.get_DenyReceivingFileRequest());
+    case Request::TUpdateMetaDataRequest:
+      return actor->DoRequest(aRequest.get_UpdateMetaDataRequest());
+    case Request::TUpdateNotificationRequest:
+      return actor->DoRequest(aRequest.get_UpdateNotificationRequest());
+    case Request::TUpdatePlayStatusRequest:
+      return actor->DoRequest(aRequest.get_UpdatePlayStatusRequest());
+
     default:
       MOZ_NOT_REACHED("Unknown type!");
       return false;
@@ -557,3 +564,47 @@ BluetoothRequestParent::DoRequest(const DenyReceivingFileRequest& aRequest)
                                  mReplyRunnable.get());
   return true;
 }
+
+bool
+BluetoothRequestParent::DoRequest(const UpdateMetaDataRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TUpdateMetaDataRequest);
+
+  mService->UpdateMetaData(aRequest.title(),
+                         aRequest.artist(),
+                         aRequest.album(),
+                         aRequest.trackNumber(),
+                         aRequest.totalTracks(),
+                         aRequest.duration(),
+                         mReplyRunnable.get());
+
+  return true;
+}
+
+bool
+BluetoothRequestParent::DoRequest(const UpdatePlayStatusRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TUpdatePlayStatusRequest);
+
+  mService->UpdatePlayStatus(aRequest.duration(),
+                         aRequest.position(),
+                         aRequest.playstatus(),
+                         mReplyRunnable.get());
+
+  return true;
+}
+
+bool
+BluetoothRequestParent::DoRequest(const UpdateNotificationRequest& aRequest)
+{
+  MOZ_ASSERT(mService);
+  MOZ_ASSERT(mRequestType == Request::TUpdateNotificationRequest);
+  mService->UpdateNotification(aRequest.eventid(),
+                           aRequest.data(),
+                           mReplyRunnable.get());
+
+  return true;
+}
+

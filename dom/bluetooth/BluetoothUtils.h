@@ -34,6 +34,9 @@ bool
 BroadcastSystemMessage(const nsAString& aType,
                        const InfallibleTArray<BluetoothNamedValue>& aData);
 
+bool
+BroadcastSystemMessage(const nsAString& aType);
+
 void
 DispatchBluetoothReply(BluetoothReplyRunnable* aRunnable,
                        const BluetoothValue& aValue,
