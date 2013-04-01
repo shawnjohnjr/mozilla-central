@@ -27,7 +27,7 @@ namespace {
 
 BluetoothA2dpManager::BluetoothA2dpManager()
 {
-  mConnectedDeviceAddress.AssignLiteral(BLUETOOTH_INVALID_ADDRESS);
+  mConnectedDeviceAddress.Truncate();
 }
 
 BluetoothA2dpManager::~BluetoothA2dpManager()
@@ -150,8 +150,8 @@ BluetoothA2dpManager::Connect(const nsAString& aDeviceAddress)
   MOZ_ASSERT(NS_IsMainThread());
 
   if ((mConnectedDeviceAddress != aDeviceAddress) &&
-      (mConnectedDeviceAddress != NS_LITERAL_STRING(BLUETOOTH_INVALID_ADDRESS))) {
-    BT_LOG("[A2DP] Connection already exists");
+      (!mConnectedDeviceAddress.IsEmpty())) {
+    NS_WARNING("BluetoothA2dpManager has connected/is connecting to a device!");
     return false;
   }
 
@@ -176,7 +176,8 @@ BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (mConnectedDeviceAddress == NS_LITERAL_STRING(BLUETOOTH_INVALID_ADDRESS)) {
+  if (mConnectedDeviceAddress.IsEmpty()) {
+    NS_WARNING("BluetoothA2dpManager has been disconnected");
     return;
   }
 
@@ -189,7 +190,7 @@ BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
   NotifyAudioManager(NS_LITERAL_STRING("")); 
   BT_LOG("[A2DP] Disconnect successfully!");
 
-  mConnectedDeviceAddress.AssignLiteral(BLUETOOTH_INVALID_ADDRESS);
+  mConnectedDeviceAddress.Truncate();
 }
 
 void
@@ -211,6 +212,12 @@ BluetoothA2dpManager::GetConnectedSinkAddress(nsAString& aDeviceAddress)
 {
   BT_LOG("mConnectedDeviceAddress: %s", NS_ConvertUTF16toUTF8(mConnectedDeviceAddress).get());
   aDeviceAddress = mConnectedDeviceAddress;
+}
+
+bool
+BluetoothA2dpManager::GetConnectionStatus()
+{
+  return mCurrentSinkState == BluetoothA2dpState::SINK_CONNECTED;
 }
 
 bool
