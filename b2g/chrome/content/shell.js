@@ -361,6 +361,30 @@ var shell = {
       case evt.DOM_VK_F1: // headset button
         type = 'headset-button';
         break;
+      case evt.DOM_VK_F15: // media play button
+        type = 'media-play-button';
+        break;
+      case evt.DOM_VK_F16: // media pause button
+        type = 'media-pause-button';
+        break;
+      case evt.DOM_VK_F17: // media play/pause button
+        type = 'media-play-pause-button';
+        break;
+      case evt.DOM_VK_F18: // media stop button
+        type = 'media-stop-button';
+        break;
+      case evt.DOM_VK_F19: // media forward button
+        type = 'media-forward-button';
+        break;
+      case evt.DOM_VK_F20: // media backward button
+        type = 'media-backward-button';
+        break;
+      case evt.DOM_VK_F21: // media rewind button
+        type = 'media-rewind-button';
+        break;
+      case evt.DOM_VK_F22: // media fastforward button
+        type = 'media-fastforward-button';
+        break;
       default:                      // Anything else is a real key
         return;  // Don't filter it at all; let it propagate to Gaia
     }
@@ -387,6 +411,17 @@ var shell = {
     if (evt.keyCode == evt.DOM_VK_F1 && type !== this.lastHardwareButtonEventType) {
       this.lastHardwareButtonEventType = type;
       gSystemMessenger.broadcastMessage('headset-button', type);
+      return;
+    }
+
+    // Bug 834554:Let applications receive the media button key press/release event.
+    // Music application checks media button system-message and
+    // performs related AVRCP 1.0 behavior.
+    // In long term, Bug 842927 will provide better media key implementation
+    if ((evt.keyCode >= evt.DOM_VK_F15 && evt.keyCode <= evt.DOM_VK_F22)
+      && type !== this.lastHardwareButtonEventType) {
+      this.lastHardwareButtonEventType = type;
+      gSystemMessenger.broadcastMessage('media-button', type);
       return;
     }
 

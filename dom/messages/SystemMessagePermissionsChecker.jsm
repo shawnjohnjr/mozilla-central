@@ -68,6 +68,7 @@ this.SystemMessagePermissionsTable = {
     "bluetooth": []
   },
   "headset-button": { },
+  "media-button": { },
   "icc-stkcommand": {
     "settings": ["read", "write"]
   },
