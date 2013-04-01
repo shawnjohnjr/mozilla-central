@@ -395,33 +395,39 @@ BluetoothServiceChildProcess::DisconnectSink(const nsAString& aDeviceAddress)
   return false;
 }
 
-bool
-BluetoothServiceChildProcess::UpdatePlayStatus(const uint32_t aDuration, const uint32_t aPosition, const uint32_t aPlayStatus,
-  BluetoothReplyRunnable* aRunnable)
+nsresult
+BluetoothServiceChildProcess::UpdatePlayStatus(uint32_t aDuration,
+                                               uint32_t aPosition,
+                                               uint32_t aPlayStatus,
+                                               BluetoothReplyRunnable* aRunnable)
 {
-  SendRequest(aRunnable, UpdatePlayStatusRequest(aDuration, aPosition, aPlayStatus));
-  return true;
+  SendRequest(aRunnable,
+              UpdatePlayStatusRequest(aDuration, aPosition, aPlayStatus));
+  return NS_OK;
 }
 
-bool
-BluetoothServiceChildProcess::UpdateMetaData(
-                 const nsAString& aTitle,
-                 const nsAString& aArtist,
-                 const nsAString& aAlbum,
-                 const nsAString& aMediaNumber,
-                 const nsAString& aTotalMediaCount,
-                 const nsAString& aPlaytime,
-                 BluetoothReplyRunnable* aRunnable)
+nsresult
+BluetoothServiceChildProcess::UpdateMetaData(const nsAString& aTitle,
+                                             const nsAString& aArtist,
+                                             const nsAString& aAlbum,
+                                             const nsAString& aMediaNumber,
+                                             const nsAString& aTotalMediaCount,
+                                             const nsAString& aPlaytime,
+                                             BluetoothReplyRunnable* aRunnable)
 {
-  SendRequest(aRunnable, UpdateMetaDataRequest(nsString(aTitle),
-        nsString(aArtist), nsString(aAlbum), nsString(aMediaNumber), nsString(aTotalMediaCount), nsString(aPlaytime)));
-  return true;
+  SendRequest(aRunnable,
+    UpdateMetaDataRequest(nsString(aTitle), nsString(aArtist),
+                          nsString(aAlbum), nsString(aMediaNumber),
+                          nsString(aTotalMediaCount), nsString(aPlaytime)));
+  return NS_OK;
 }
 
-bool
-BluetoothServiceChildProcess::UpdateNotification(const uint32_t aEventid, const uint32_t aData, BluetoothReplyRunnable* aRunnable)
+nsresult
+BluetoothServiceChildProcess::UpdateNotification(uint32_t aEventid,
+                                                 uint32_t aData,
+                                                 BluetoothReplyRunnable* aRunnable)
 {
   SendRequest(aRunnable, UpdateNotificationRequest(aEventid, aData));
-  return true;
+  return NS_OK;
 }
 
