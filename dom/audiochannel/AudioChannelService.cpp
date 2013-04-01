@@ -62,7 +62,7 @@ AudioChannelService::Shutdown()
   }
 }
 
-NS_IMPL_ISUPPORTS0(AudioChannelService)
+NS_IMPL_ISUPPORTS1(AudioChannelService, nsIObserver)
 
 AudioChannelService::AudioChannelService()
 : mCurrentHigherChannel(AUDIO_CHANNEL_LAST)
@@ -122,6 +122,33 @@ AudioChannelService::UnregisterAudioChannelAgent(AudioChannelAgent* aAgent)
 
 void
 AudioChannelService::UnregisterType(AudioChannelType aType,
+                                    bool aElementHidden,
+                                    uint64_t aChildID)
+{
+  // There are two reasons to defer the decrease of telephony channel.
+  // 1. User can have time to remove device from his ear before music resuming.
+  // 2. Give BT SCO to be disconnected before starting to connect A2DP.
+  if (aType == AUDIO_CHANNEL_TELEPHONY &&
+      (mChannelCounters[AUDIO_CHANNEL_INT_TELEPHONY_HIDDEN].Length() +
+      mChannelCounters[AUDIO_CHANNEL_INT_TELEPHONY].Length()) == 1 &&
+      XRE_GetProcessType() == GeckoProcessType_Default) {
+    if (mDeferTelChannelTimer) {
+      mDeferTelChannelTimer->Cancel();
+      mDeferTelChannelTimer = nullptr;
+      UnregisterTypeInternal(aType, mTimerElementHidden, mTimerChildID);
+    }
+    mTimerElementHidden = aElementHidden;
+    mTimerChildID = aChildID;
+    mDeferTelChannelTimer = do_CreateInstance("@mozilla.org/timer;1");
+    mDeferTelChannelTimer->InitWithCallback(this, 1500, nsITimer::TYPE_ONE_SHOT);
+    return;
+  }
+
+  UnregisterTypeInternal(aType, aElementHidden, aChildID);
+}
+
+void
+AudioChannelService::UnregisterTypeInternal(AudioChannelType aType,
                                     bool aElementHidden,
                                     uint64_t aChildID)
 {
@@ -383,6 +410,14 @@ AudioChannelService::Notify()
   for (uint32_t i = 0; i < children.Length(); i++) {
     unused << children[i]->SendAudioChannelNotify();
   }
+}
+
+NS_IMETHODIMP
+AudioChannelService::Notify(nsITimer* aTimer)
+{
+  UnregisterTypeInternal(AUDIO_CHANNEL_TELEPHONY, mTimerElementHidden, mTimerChildID);
+  mDeferTelChannelTimer = nullptr;
+  return NS_OK;
 }
 
 bool
