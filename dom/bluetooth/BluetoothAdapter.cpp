@@ -15,6 +15,7 @@
 #include "nsContentUtils.h"
 #include "nsDOMClassInfo.h"
 #include "nsIDOMBluetoothDeviceEvent.h"
+#include "nsIDOMBluetoothStatusChangedEvent.h"
 #include "nsTArrayHelpers.h"
 #include "DOMRequest.h"
 #include "nsThreadUtils.h"
@@ -296,6 +297,28 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     NS_ASSERTION(arr.Length() == 1,
                  "Got more than one property in a change message!");
     SetPropertyByValue(arr[0]);
+  } else if (aData.name().EqualsLiteral("PairedStatusChanged")) {
+    const InfallibleTArray<BluetoothNamedValue>& arr =
+      aData.value().get_ArrayOfBluetoothNamedValue();
+    BT_LOG("[A] length: %d", arr.Length());
+
+    nsAutoString address;
+    bool status;
+
+    address = arr[0].value().get_nsString();
+    status = arr[1].value().get_bool();
+
+    BT_LOG("[A] address: %s, status: %d",
+           NS_ConvertUTF16toUTF8(address).get(), status);
+
+    nsCOMPtr<nsIDOMEvent> event;
+    NS_NewDOMBluetoothStatusChangedEvent(
+      getter_AddRefs(event), this, nullptr, nullptr);
+
+    nsCOMPtr<nsIDOMBluetoothStatusChangedEvent> e = do_QueryInterface(event);
+    e->InitBluetoothStatusChangedEvent(NS_LITERAL_STRING("pairedstatuschanged"),
+                                       false, false, address, status);
+    DispatchTrustedEvent(event);
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -837,3 +860,4 @@ BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
 }
 
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, pairedstatuschanged)

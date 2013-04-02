@@ -979,7 +979,7 @@ ConnectSinkCallback(DBusMessage* aMsg, void* aParam)
   BT_LOG("ConnectSinkCallback: Device path: %s", path);
 
   // TEMP
-  // delete path;
+  delete [] path;
 }
 
 void
@@ -999,7 +999,7 @@ DisconnectSinkCallback(DBusMessage* aMsg, void* aParam)
   BT_LOG("DisconnectSinkCallback: Device path: %s", path);
 
   // TEMP
-  // delete path;
+  delete [] path;
 }
 
 void
@@ -1611,11 +1611,33 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
 
     BluetoothNamedValue& property = v.get_ArrayOfBluetoothNamedValue()[0];
     if (property.name().EqualsLiteral("Paired")) {
+      BT_LOG("[B] PairedStatusChanged");
+      bool status = property.value();
+      nsAutoString address = signalPath;
+
+      // Original approach, system message
       // transfer signal to BluetoothService and
       // broadcast system message of bluetooth-pairingstatuschanged
       signalName = NS_LITERAL_STRING("PairedStatusChanged");
       signalPath = NS_LITERAL_STRING(KEY_LOCAL_AGENT);
       property.name() = NS_LITERAL_STRING("paired");
+      BluetoothSignal signal(signalName, signalPath, v);
+      nsRefPtr<DistributeBluetoothSignalTask>
+        t = new DistributeBluetoothSignalTask(signal);
+      if (NS_FAILED(NS_DispatchToMainThread(t))) {
+        NS_WARNING("Failed to dispatch to main thread!");
+      }
+
+      // New approach, event handler
+      v = InfallibleTArray<BluetoothNamedValue>();
+      v.get_ArrayOfBluetoothNamedValue().AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("address"), nsString(address)));
+      v.get_ArrayOfBluetoothNamedValue().AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("status"), status));
+
+      BT_LOG("[B] address: %s, status: %d", NS_ConvertUTF16toUTF8(address).get(), status);
+
+      // Hand over this signal to BluetoothAdapter to dispatch event
+      signalName = NS_LITERAL_STRING("PairedStatusChanged");
+      signalPath = NS_LITERAL_STRING(KEY_ADAPTER);
     }
   } else if (dbus_message_is_signal(aMsg, DBUS_MANAGER_IFACE, "AdapterAdded")) {
     const char* str;
