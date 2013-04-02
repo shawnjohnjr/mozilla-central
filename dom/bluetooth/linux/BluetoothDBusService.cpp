@@ -1666,6 +1666,9 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
     // Notify Gaia for A2DP link state change
     if (properties[0].name().EqualsLiteral("State")) {
       nsString address = GetAddressFromObjectPath(signalPath);
+      BluetoothA2dpManager *bs = BluetoothA2dpManager::Get();
+      // Set state changed
+      bs->HandleSinkPropertyChange(address, properties[0].value().get_nsString());
       // transfer signal to BluetoothService
       signalName = NS_LITERAL_STRING("A2dpConnStatusChanged");
 
