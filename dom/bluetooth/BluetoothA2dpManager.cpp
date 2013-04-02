@@ -138,7 +138,6 @@ BluetoothA2dpManager::HandleSinkPropertyChange(const nsAString& aDeviceObjectPat
     RouteA2dpAudioPath();
   } else if (aNewState.EqualsLiteral("playing")) {
     BT_LOG("Start streaming Route path to a2dp");
-    RouteA2dpAudioPath();
   }
   mCurrentSinkState = ConvertSinkStringToState(aNewState);
   //TODO: Need to check Sink state and do more stuffs

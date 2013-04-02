@@ -27,7 +27,7 @@ using namespace android;
 using namespace mozilla::hal;
 using namespace mozilla;
 
-#define LOG(args...)  __android_log_print(ANDROID_LOG_ERROR, "AudioManager" , ## args)
+#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "AudioManager" , ## args)
 
 #define HEADPHONES_STATUS_CHANGED "headphones-status-changed"
 #define HEADPHONES_STATUS_HEADSET   NS_LITERAL_STRING("headset").get()
@@ -175,11 +175,9 @@ AudioManager::Observe(nsISupports* aSubject,
       AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
                                             AUDIO_POLICY_DEVICE_STATE_AVAILABLE,
                                             address.get());
-      LOG("++++ bluetooth_enabled=true, a2dpsuspended=false AUDIO_POLICY_DEVICE_STATE_AVAILABLE   ++++");
     } else {
       AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
                                             AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE, "");
-      LOG("++++ bluetooth_enabled=true, a2dpsuspended=false AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE ++++");
     }
 
     return NS_OK;
