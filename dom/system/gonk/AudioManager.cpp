@@ -27,7 +27,7 @@ using namespace android;
 using namespace mozilla::hal;
 using namespace mozilla;
 
-#define LOG(args...)  __android_log_print(ANDROID_LOG_INFO, "AudioManager" , ## args)
+#define LOG(args...)  __android_log_print(ANDROID_LOG_ERROR, "AudioManager" , ## args)
 
 #define HEADPHONES_STATUS_CHANGED "headphones-status-changed"
 #define HEADPHONES_STATUS_HEADSET   NS_LITERAL_STRING("headset").get()
@@ -175,9 +175,11 @@ AudioManager::Observe(nsISupports* aSubject,
       AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
                                             AUDIO_POLICY_DEVICE_STATE_AVAILABLE,
                                             address.get());
+      LOG("++++ bluetooth_enabled=true, a2dpsuspended=false AUDIO_POLICY_DEVICE_STATE_AVAILABLE   ++++");
     } else {
       AudioSystem::setDeviceConnectionState(AUDIO_DEVICE_OUT_BLUETOOTH_A2DP,
                                             AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE, "");
+      LOG("++++ bluetooth_enabled=true, a2dpsuspended=false AUDIO_POLICY_DEVICE_STATE_UNAVAILABLE ++++");
     }
 
     return NS_OK;
@@ -225,6 +227,10 @@ AudioManager::AudioManager() : mPhoneState(PHONE_STATE_CURRENT),
     NS_WARNING("Failed to add bluetooth-sco-status-changed oberver!");
   }
 
+  if (NS_FAILED(obs->AddObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED, false))) {
+    NS_WARNING("Failed to add bluetooth-sco-status-changed oberver!");
+  }
+
   for (int loop = 0; loop < AUDIO_STREAM_CNT; loop++) {
     AudioSystem::initStreamVolume(static_cast<audio_stream_type_t>(loop), 0,
                                   sMaxStreamVolumeTbl[loop]);
@@ -241,6 +247,10 @@ AudioManager::~AudioManager() {
   if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_SCO_STATUS_CHANGED))) {
     NS_WARNING("Failed to add bluetooth-sco-status-changed oberver!");
   }
+  if (NS_FAILED(obs->RemoveObserver(this, BLUETOOTH_A2DP_STATUS_CHANGED))) {
+    NS_WARNING("Failed to add bluetooth-sco-status-changed oberver!");
+  }
+
 }
 
 NS_IMETHODIMP
