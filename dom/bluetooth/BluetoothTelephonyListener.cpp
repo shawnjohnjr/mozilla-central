@@ -5,7 +5,7 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "BluetoothTelephonyListener.h"
-
+#include "BluetoothA2dpManager.h"
 #include "BluetoothHfpManager.h"
 #include "nsRadioInterfaceLayer.h"
 #include "nsServiceManagerUtils.h"
@@ -34,6 +34,8 @@ TelephonyListener::CallStateChanged(uint32_t aCallIndex,
 {
   BluetoothHfpManager* hfp = BluetoothHfpManager::Get();
   hfp->HandleCallStateChanged(aCallIndex, aCallState, aNumber, true);
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  a2dp->HandleCallStateChanged(aCallState);
 
   return NS_OK;
 }

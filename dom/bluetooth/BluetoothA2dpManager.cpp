@@ -16,7 +16,7 @@
 #include "nsIAudioManager.h"
 #include "nsIObserverService.h"
 #include "mozilla/dom/bluetooth/BluetoothTypes.h"
-
+#include "nsRadioInterfaceLayer.h"
 #define BLUETOOTH_A2DP_STATUS_CHANGED "bluetooth-a2dp-status-changed"
 
 USING_BLUETOOTH_NAMESPACE
@@ -28,10 +28,20 @@ namespace {
 BluetoothA2dpManager::BluetoothA2dpManager()
 {
   mConnectedDeviceAddress.Truncate();
+  mListener = new BluetoothTelephonyListener();
+
+  if (!mListener->StartListening()) {
+    NS_WARNING("Failed to start listening RIL");
+  }
+
 }
 
 BluetoothA2dpManager::~BluetoothA2dpManager()
 {
+  if (!mListener->StopListening()) {
+    NS_WARNING("Failed to stop listening RIL");
+  }
+  mListener = nullptr;
 
 }
 
@@ -211,6 +221,35 @@ BluetoothA2dpManager::GetConnectedSinkAddress(nsAString& aDeviceAddress)
 {
   BT_LOG("mConnectedDeviceAddress: %s", NS_ConvertUTF16toUTF8(mConnectedDeviceAddress).get());
   aDeviceAddress = mConnectedDeviceAddress;
+}
+
+void
+BluetoothA2dpManager::HandleCallStateChanged(uint16_t aCallState)
+{
+  switch (aCallState) {
+    case nsITelephonyProvider::CALL_STATE_INCOMING:
+    case nsITelephonyProvider::CALL_STATE_CONNECTED:
+      BT_LOG("BluetoothA2dpManager: CALL_STATE_INCOMING/CALL_STATE_CONNECTED, disable AVRCP");
+      // PHONE_STATE RINGING or OFFHOOK
+      // We have to suspend a2dp stream, it is compliant with the Bluetooth SIG AV+HFP
+      // Whitepaper. We shall not have A2DP in streaming state while HFP manager
+      // is trying to send AT command "RING".
+      SetParameter(NS_LITERAL_STRING("A2dpSuspended=true"));
+      break;
+      //PHONE_STATE IDLE
+    case nsITelephonyProvider::CALL_STATE_DISCONNECTED:
+      // IDLE state, we shall do delay resuming sink, there are many chipsets on
+      // Bluetooth headsets cannot handle A2DP sink resuming stream too fast,
+      // while SCO state is in disconnecting
+      BT_LOG("BluetoothA2dpManager: CALL_STATE_DISCONNECTED, delay resume sink");
+      SetParameter(NS_LITERAL_STRING("A2dpSuspended=false"));
+      break;
+    case nsITelephonyProvider::CALL_STATE_DIALING:
+    case nsITelephonyProvider::CALL_STATE_ALERTING:
+      break;
+    default:
+      break;
+  }
 }
 
 bool
