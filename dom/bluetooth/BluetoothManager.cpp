@@ -12,8 +12,10 @@
 #include "BluetoothReplyRunnable.h"
 
 #include "DOMRequest.h"
+#include "GeneratedEvents.h"
 #include "nsContentUtils.h"
 #include "nsDOMClassInfo.h"
+#include "nsIDOMBluetoothStatusChangedEvent.h"
 #include "nsIPermissionManager.h"
 #include "nsThreadUtils.h"
 #include "mozilla/Util.h"
@@ -172,7 +174,7 @@ nsresult
 NS_NewBluetoothManager(nsPIDOMWindow* aWindow,
                        nsIDOMBluetoothManager** aBluetoothManager)
 {
-  NS_ASSERTION(aWindow, "Null pointer!");
+  MOZ_ASSERT(aWindow);
 
   nsCOMPtr<nsIPermissionManager> permMgr =
     do_GetService(NS_PERMISSIONMANAGER_CONTRACTID);
@@ -205,6 +207,33 @@ BluetoothManager::Notify(const BluetoothSignal& aData)
     DispatchTrustedEvent(NS_LITERAL_STRING("enabled"));
   } else if (aData.name().EqualsLiteral("Disabled")) {
     DispatchTrustedEvent(NS_LITERAL_STRING("disabled"));
+  } else if (aData.name().EqualsLiteral("HfpStatusChanged")) {
+    BluetoothValue v = aData.value();
+    MOZ_ASSERT(v.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
+    const InfallibleTArray<BluetoothNamedValue>& arr =
+      v.get_ArrayOfBluetoothNamedValue();
+
+    MOZ_ASSERT(arr.Length() == 2 &&
+               arr[0].value().type() == BluetoothValue::TnsString &&
+               arr[1].value().type() == BluetoothValue::Tbool);
+    nsString address = arr[0].value().get_nsString();
+    bool status = arr[1].value().get_bool();
+
+    BT_LOG("[M] address: %s, status: %d",
+           NS_ConvertUTF16toUTF8(address).get(), status);
+
+    nsCOMPtr<nsIDOMEvent> event;
+    NS_NewDOMBluetoothStatusChangedEvent(
+      getter_AddRefs(event), this, nullptr, nullptr);
+
+    nsCOMPtr<nsIDOMBluetoothStatusChangedEvent> e = do_QueryInterface(event);
+    e->InitBluetoothStatusChangedEvent(NS_LITERAL_STRING("hfpstatuschanged"),
+                                       false, false, address, status);
+    DispatchTrustedEvent(event);
+/*  } else if (aData.name().EqualsLiteral("OppStatusChanged")) {
+
+  } else if (aData.name().EqualsLiteral("A2dpStatusChanged")) {
+*/
   } else {
 #ifdef DEBUG
     nsCString warningMsg;
@@ -227,7 +256,9 @@ BluetoothManager::IsConnected(uint16_t aProfileId, bool* aConnected)
   *aConnected = bs->IsConnected(aProfileId);
   return NS_OK;
 }
+
 NS_IMPL_EVENT_HANDLER(BluetoothManager, enabled)
 NS_IMPL_EVENT_HANDLER(BluetoothManager, disabled)
 NS_IMPL_EVENT_HANDLER(BluetoothManager, adapteradded)
+NS_IMPL_EVENT_HANDLER(BluetoothManager, hfpstatuschanged)
 
