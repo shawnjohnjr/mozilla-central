@@ -261,6 +261,47 @@ public:
   }
 };
 
+class SinkPropertyHandler : public nsRunnable {
+public:
+  SinkPropertyHandler(const nsAString& aAddress, const BluetoothValue& aValue)
+    : mAddress(aAddress)
+    , mValue(aValue)
+  {
+    MOZ_ASSERT(!NS_IsMainThread());
+  }
+
+  NS_IMETHOD
+  Run()
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+    if (mValue.type() != BluetoothValue::TArrayOfBluetoothNamedValue) {
+      NS_WARNING("Invalid type for Sink Property Changed");
+      return NS_ERROR_FAILURE;
+    }
+
+    BluetoothNamedValue& property =
+      mValue.get_ArrayOfBluetoothNamedValue()[0];
+
+    if (!property.name().EqualsLiteral("State")) {
+      // Ignore property "Connected" and "Playing"
+      return NS_OK;
+    } else if (property.value().type() != BluetoothValue::TnsString) {
+      NS_WARNING("Invalid type for Sink property 'State'");
+      return NS_ERROR_FAILURE;
+    }
+
+
+    BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+    a2dp->HandleSinkPropertyChange(GetAddressFromObjectPath(mAddress),
+                                   property.value().get_nsString());
+    return NS_OK;
+  }
+
+private:
+  nsString mAddress;
+  BluetoothValue mValue;
+};
+
 class PrepareAdapterTask : public nsRunnable {
 public:
   PrepareAdapterTask(const nsAString& aPath) :
@@ -1669,37 +1710,13 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
                         sSinkProperties,
                         ArrayLength(sSinkProperties));
 
-    InfallibleTArray<BluetoothNamedValue>& properties =
-      v.get_ArrayOfBluetoothNamedValue();
-
-#ifdef DEBUG
-    for (int i = 0; i < properties.Length(); ++i) {
-      if (properties[i].value().type() == BluetoothValue::Tbool) {
-        BT_LOG("PropertyChanged - Boolean - Name: %s, Value: %x",
-               NS_ConvertUTF16toUTF8(properties[i].name()).get(),
-               properties[i].value().get_bool());
-      } else {
-        BT_LOG("PropertyChanged - String - Name: %s, Value: %s",
-               NS_ConvertUTF16toUTF8(properties[i].name()).get(),
-               NS_ConvertUTF16toUTF8(properties[i].value().get_nsString()).get());
-      }
+    nsRefPtr<SinkPropertyHandler> task =
+      new SinkPropertyHandler(signalPath, v);
+    if (NS_FAILED(NS_DispatchToMainThread(task))) {
+      NS_WARNING("Failed to dispatch to main thread!");
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
-#endif
-
-    // Notify Gaia for A2DP link state change
-    if (properties[0].name().EqualsLiteral("State")) {
-      nsString address = GetAddressFromObjectPath(signalPath);
-      BluetoothA2dpManager *bs = BluetoothA2dpManager::Get();
-      // Set state changed
-      bs->HandleSinkPropertyChange(address, properties[0].value().get_nsString());
-      // transfer signal to BluetoothService
-      signalName = NS_LITERAL_STRING("A2dpConnStatusChanged");
-
-      // xxx This is not good, LOCAL_AGENT_PATH should not be used this way.
-      signalPath = NS_LITERAL_STRING(LOCAL_AGENT_PATH);
-      properties.AppendElement(BluetoothNamedValue(NS_LITERAL_STRING("Address"),
-                               BluetoothValue(address)));
-    }
+    return DBUS_HANDLER_RESULT_HANDLED;
   } else if (dbus_message_is_signal(aMsg, DBUS_CTL_IFACE, "PropertyChanged")) {
     BT_LOG("[CTL Interface] PropertyChanged");
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
@@ -1708,6 +1725,7 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
     nsRefPtr<UpdatePlayStatusTask> b = new UpdatePlayStatusTask();
     if (NS_FAILED(NS_DispatchToMainThread(b))) {
        NS_WARNING("Failed to dispatch to main thread!");
+        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
   } else {
