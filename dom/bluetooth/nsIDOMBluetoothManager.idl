@@ -9,7 +9,7 @@
 interface nsIDOMDOMRequest;
 interface nsIDOMBluetoothAdapter;
 
-[scriptable, builtinclass, uuid(303a262a-1dd1-486d-a108-d8c582e86765)]
+[scriptable, builtinclass, uuid(da8673ce-39f0-4844-9829-7b81d308bf33)]
 interface nsIDOMBluetoothManager : nsIDOMEventTarget
 {
   readonly attribute bool enabled;
@@ -21,4 +21,5 @@ interface nsIDOMBluetoothManager : nsIDOMEventTarget
   [implicit_jscontext] attribute jsval onenabled;
   [implicit_jscontext] attribute jsval ondisabled;
   [implicit_jscontext] attribute jsval onadapteradded;
+  [implicit_jscontext] attribute jsval onhfpstatuschanged;
 };
