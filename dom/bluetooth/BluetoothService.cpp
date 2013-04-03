@@ -53,7 +53,7 @@
 
 #define DEFAULT_SHUTDOWN_TIMER_MS 5000
 
-bool gBluetoothDebugFlag = false;
+bool gBluetoothDebugFlag = true;
 
 using namespace mozilla;
 using namespace mozilla::dom;
