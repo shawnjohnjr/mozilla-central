@@ -508,6 +508,26 @@ BluetoothHfpManager::Get()
   return gBluetoothHfpManager;
 }
 
+bool
+DistributeSignal(const nsAString& aAddress, bool aStatus)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+
+  InfallibleTArray<BluetoothNamedValue> data;
+  data.AppendElement(BluetoothNamedValue(
+    NS_LITERAL_STRING("address"), nsString(aAddress)));
+  data.AppendElement(BluetoothNamedValue(
+    NS_LITERAL_STRING("status"), aStatus));
+
+  BluetoothSignal signal(NS_LITERAL_STRING("HfpStatusChanged"),
+                         NS_LITERAL_STRING(KEY_MANAGER), data);
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE(bs, false);
+  bs->DistributeSignal(signal);
+
+  return true;
+}
+
 void
 BluetoothHfpManager::NotifySettings()
 {
@@ -1375,8 +1395,12 @@ BluetoothHfpManager::OnConnectSuccess()
   mSocketStatus = GetConnectionStatus();
 
   NotifySettings();
-  nsRefPtr<nsRunnable> task = new ConnectA2dpTask(mDevicePath);
-  NS_DispatchToMainThread(task);
+
+  DistributeSignal(mDevicePath, true);
+
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  NS_ENSURE_TRUE_VOID(a2dp);
+  a2dp->Connect(mDevicePath); 
 }
 
 void
@@ -1406,6 +1430,8 @@ BluetoothHfpManager::OnDisconnect()
   if (mSocketStatus == SocketConnectionStatus::SOCKET_CONNECTED) {
     Listen();
     NotifySettings();
+
+    DistributeSignal(mDevicePath, false);
   } else if (mSocketStatus == SocketConnectionStatus::SOCKET_CONNECTING) {
     NS_WARNING("BluetoothHfpManager got unexpected socket status!");
   }
