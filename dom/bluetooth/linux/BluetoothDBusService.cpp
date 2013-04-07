@@ -283,7 +283,7 @@ public:
       mValue.get_ArrayOfBluetoothNamedValue()[0];
 
     if (!property.name().EqualsLiteral("State")) {
-      // Ignore property "Connected" and "Playing"
+      // Property "Connected" and "Playing" are ignored here
       return NS_OK;
     } else if (property.value().type() != BluetoothValue::TnsString) {
       NS_WARNING("Invalid type for Sink property 'State'");
@@ -336,6 +336,7 @@ class UpdatePlayStatusTask : public nsRunnable {
 public:
   UpdatePlayStatusTask()
   {
+    MOZ_ASSERT(!NS_IsMainThread());
   }
 
   NS_IMETHOD
@@ -343,13 +344,9 @@ public:
   {
     MOZ_ASSERT(NS_IsMainThread());
     BT_LOG("UpdatePlayStatusTask");
-    BluetoothA2dpManager* bs = BluetoothA2dpManager::Get();
-    if (!bs) {
-      NS_WARNING("BluetoothService not available!");
-      return NS_ERROR_FAILURE;
-    }
-    BT_LOG("UpdatePlayStatusTask");
-    bs->NotifyMusicPlayStatus();
+    BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+    NS_ENSURE_TRUE(a2dp, NS_ERROR_FAILURE);
+    a2dp->NotifyMusicPlayStatus();
     //TODO: Move it when gaia interface is ready
     return NS_OK;
   }
@@ -1003,43 +1000,65 @@ RunDBusCallback(DBusMessage* aMsg, void* aBluetoothReplyRunnable,
 }
 
 void
-ConnectSinkCallback(DBusMessage* aMsg, void* aParam)
+RunSinkCallback(DBusMessage* aMsg, void* aParam, bool aExpectedResult)
 {
-  BT_LOG("ConnectSinkCallBack");
+  BT_LOG("[B] %s", __FUNCTION__);
 
   DBusError err;
   dbus_error_init(&err);
 
+  const char* path = (const char*)aParam;
+  nsString address = NS_ConvertUTF8toUTF16(path);
+  delete [] path;
+
+  bool isConnected = aExpectedResult;
+
   if (dbus_set_error_from_message(&err, aMsg)) {
-    BT_LOG("ConnectSinkCallback error");
+    BT_LOG("[B] %s error", __FUNCTION__);
     LOG_AND_FREE_DBUS_ERROR(&err);
+    isConnected = !isConnected;
   }
 
-  const char* path = (const char*)aParam;
-  BT_LOG("ConnectSinkCallback: Device path: %s", path);
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  NS_ENSURE_TRUE_VOID(a2dp);
 
-  // TEMP
-  delete [] path;
+  a2dp->DispatchConnectionStatus(address, isConnected);
+}
+
+void
+ConnectSinkCallback(DBusMessage* aMsg, void* aParam)
+{
+  RunSinkCallback(aMsg, aParam, true);
 }
 
 void
 DisconnectSinkCallback(DBusMessage* aMsg, void* aParam)
 {
-  BT_LOG("DisconnectSinkCallBack");
+  RunSinkCallback(aMsg, aParam, false);
+}
 
-  DBusError err;
+void
+RunCTLCallback(DBusMessage* aMsg, void* aParam)
+{
+  BT_LOG("RunCTLCallBack");
+
+/*  DBusError err;
   dbus_error_init(&err);
-
-  if (dbus_set_error_from_message(&err, aMsg)) {
-    BT_LOG("DisconnectSinkCallback error");
-    LOG_AND_FREE_DBUS_ERROR(&err);
-  }
+  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+  NS_ENSURE_TRUE_VOID(a2dp);
 
   const char* path = (const char*)aParam;
-  BT_LOG("DisconnectSinkCallback: Device path: %s", path);
-
-  // TEMP
+  nsString address = NS_ConvertUTF8toUTF16(path);
   delete [] path;
+
+  if (!dbus_set_error_from_message(&err, aMsg)) {
+    a2dp->BroadcastConnectionStatus(address);
+    return;
+  }
+  
+  BT_LOG("RunSinkCallback error");
+  LOG_AND_FREE_DBUS_ERROR(&err);
+  a2dp->BroadcastConnectionStatus(NS_LITERAL_STRING(""));*/
 }
 
 void
@@ -1723,10 +1742,10 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
     BT_LOG("[CTL Interface] GetPlayStatus");
     nsRefPtr<UpdatePlayStatusTask> b = new UpdatePlayStatusTask();
     if (NS_FAILED(NS_DispatchToMainThread(b))) {
-       NS_WARNING("Failed to dispatch to main thread!");
-        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+      NS_WARNING("Failed to dispatch to main thread!");
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
     }
-    return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    return DBUS_HANDLER_RESULT_HANDLED;
   } else {
     nsAutoCString signalStr;
     signalStr += dbus_message_get_member(aMsg);
@@ -2985,6 +3004,7 @@ BluetoothDBusService::ListenSocketViaService(
 
   return NS_OK;
 }
+
 bool
 BluetoothDBusService::ConnectSink(const nsAString& aDeviceAddress)
 {
@@ -3004,7 +3024,7 @@ BluetoothDBusService::ConnectSink(const nsAString& aDeviceAddress)
                               -1,
                               ConnectSinkCallback,
                               (void*)rawPath,
-                              NS_ConvertUTF16toUTF8(path).get(),
+                              rawPath,
                               DBUS_SINK_IFACE,
                               "Connect",
                               DBUS_TYPE_INVALID);
@@ -3033,52 +3053,57 @@ BluetoothDBusService::DisconnectSink(const nsAString& aDeviceAddress)
                               -1,
                               DisconnectSinkCallback,
                               (void*)rawPath,
-                              NS_ConvertUTF16toUTF8(path).get(),
+                              rawPath,
                               DBUS_SINK_IFACE,
                               "Disconnect",
                               DBUS_TYPE_INVALID);
 }
 
+// XXX: Why we need this function? Is it a DOMRequest?
 bool
 BluetoothDBusService::SuspendSink(const nsAString& aDeviceObjectPath,
                                   BluetoothReplyRunnable* aRunnable)
 {
-
-  bool ret = true;
-  ret = dbus_func_args_async(mConnection,
-                            -1,
-                            NULL,
-                            (void*)aRunnable,
-                            NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
-                            DBUS_SINK_IFACE,
-                            "Suspend",
-                            DBUS_TYPE_INVALID);
+  nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
+  // TODO: Need a new callback here
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  NULL,
+                                  (void*)runnable,
+                                  NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
+                                  DBUS_SINK_IFACE,
+                                  "Suspend",
+                                  DBUS_TYPE_INVALID);
   if (!ret) {
     NS_WARNING("Could not start async function!");
-    return NS_ERROR_FAILURE;
+    return false;
   }
 
+  runnable.forget();
   return ret;
 }
 
+// XXX: Why we need this function? Is it a DOMRequest?
 bool
 BluetoothDBusService::ResumeSink(const nsAString& aDeviceObjectPath,
                                   BluetoothReplyRunnable* aRunnable)
 {
-  bool ret = true;
-  ret = dbus_func_args_async(mConnection,
-                            -1,
-                            NULL,
-                            (void*)aRunnable,
-                            NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
-                            DBUS_SINK_IFACE,
-                            "Resume",
-                            DBUS_TYPE_INVALID);
+  nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
+  // TODO: Need a new callback here
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  NULL,
+                                  (void*)runnable,
+                                  NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
+                                  DBUS_SINK_IFACE,
+                                  "Resume",
+                                  DBUS_TYPE_INVALID);
   if (!ret) {
     NS_WARNING("Could not start async function!");
-    return NS_ERROR_FAILURE;
+    return false;
   }
 
+  runnable.forget();
   return ret;
 }
 
@@ -3122,8 +3147,8 @@ BluetoothDBusService::UpdatePlayStatus(uint32_t aDuration,
   //TODO:Need to handle callback to check return value if dbus failed
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
-                                  NULL,
-                                  NULL,
+                                  GetVoidCallback,
+                                  (void*)rawPath,
                                   rawPath,
                                   DBUS_CTL_IFACE,
                                   "UpdatePlayStatus",
@@ -3198,8 +3223,8 @@ BluetoothDBusService::UpdateMetaData(const nsAString& aTitle,
   //TODO:Need to handle callback to check return value if dbus failed
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
-                                  NULL,
-                                  NULL,
+                                  GetVoidCallback,
+                                  (void*)rawPath,
                                   rawPath,
                                   DBUS_CTL_IFACE,
                                   "UpdateMetaData",
@@ -3253,8 +3278,8 @@ BluetoothDBusService::UpdateNotification(uint32_t aEventid,
 
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
-                                  NULL,
-                                  NULL,
+                                  GetVoidCallback,
+                                  (void*)rawPath,
                                   rawPath,
                                   DBUS_CTL_IFACE,
                                   "UpdateNotification",
