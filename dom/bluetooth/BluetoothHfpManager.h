@@ -85,7 +85,8 @@ private:
   void ResetCallArray();
 
   void NotifyDialer(const nsAString& aCommand);
-  void NotifySettings();
+  void BroadcastConnectionStatus();
+  void DispatchConnectionStatus();
 
   bool SendCommand(const char* aCommand, uint8_t aValue = 0);
   bool SendLine(const char* aMessage);
@@ -104,7 +105,7 @@ private:
   bool mCMER;
   int mNetworkSelectionMode;
   bool mReceiveVgsFlag;
-  nsString mDevicePath;
+  nsString mDeviceAddress;
   nsString mMsisdn;
   nsString mOperatorName;
   enum mozilla::ipc::SocketConnectionStatus mSocketStatus;
