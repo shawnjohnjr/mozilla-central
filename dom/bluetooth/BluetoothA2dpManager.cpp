@@ -27,7 +27,7 @@ namespace {
 
 BluetoothA2dpManager::BluetoothA2dpManager()
 {
-  mConnectedDeviceAddress.Truncate();
+  mDeviceAddress.Truncate();
   mListener = new BluetoothTelephonyListener();
 
   if (!mListener->StartListening()) {
@@ -85,7 +85,29 @@ SetParameter(const nsAString& aParameter)
 }
 
 void
-NotifyAudioManager(const nsAString& aAddress)
+BluetoothA2dpManager::DispatchConnectionStatus(const nsAString& aDeviceAddress,
+                                               bool aIsConnected)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+
+  mDeviceAddress = aDeviceAddress;
+  mConnected = aIsConnected;
+
+  InfallibleTArray<BluetoothNamedValue> data;
+  data.AppendElement(BluetoothNamedValue(
+    NS_LITERAL_STRING("address"), nsString(aDeviceAddress)));
+  data.AppendElement(BluetoothNamedValue(
+    NS_LITERAL_STRING("status"), aIsConnected));
+
+  BluetoothSignal signal(NS_LITERAL_STRING("A2dpStatusChanged"),
+                         NS_LITERAL_STRING(KEY_MANAGER), data);
+  BluetoothService* bs = BluetoothService::Get();
+  NS_ENSURE_TRUE_VOID(bs);
+  bs->DistributeSignal(signal);
+}
+
+void
+BluetoothA2dpManager::NotifyAudioManager(const nsAString& aAddress)
 {
   BT_LOG("[A2DP] %s", __FUNCTION__);
   MOZ_ASSERT(NS_IsMainThread());
@@ -94,6 +116,11 @@ NotifyAudioManager(const nsAString& aAddress)
     do_GetService("@mozilla.org/observer-service;1");
   NS_ENSURE_TRUE_VOID(obs);
 
+  nsCOMPtr<nsIAudioManager> am =
+    do_GetService("@mozilla.org/telephony/audiomanager;1");
+  NS_ENSURE_TRUE_VOID(am);
+
+  int force;
   if (aAddress.IsEmpty()) {
     if (NS_FAILED(obs->NotifyObservers(nullptr,
                                        BLUETOOTH_A2DP_STATUS_CHANGED,
@@ -101,6 +128,7 @@ NotifyAudioManager(const nsAString& aAddress)
       NS_WARNING("Failed to notify bluetooth-a2dp-status-changed observsers!");
       return;
     }
+    force = am->FORCE_BT_A2DP;
   } else {
     if (NS_FAILED(obs->NotifyObservers(nullptr,
                                        BLUETOOTH_A2DP_STATUS_CHANGED,
@@ -108,19 +136,12 @@ NotifyAudioManager(const nsAString& aAddress)
       NS_WARNING("Failed to notify bluetooth-a2dp-status-changed observsers!");
       return;
     }
+    force = am->FORCE_NONE;
   }
+  am->SetForceForUse(am->USE_MEDIA, force);
 }
 
-static void
-RouteA2dpAudioPath()
-{
-  SetParameter(NS_LITERAL_STRING("bluetooth_enabled=true"));
-  SetParameter(NS_LITERAL_STRING("A2dpSuspended=false"));
-  android::AudioSystem::setForceUse((audio_policy_force_use_t)1,
-      (audio_policy_forced_cfg_t)0);
-}
-
-/* HandleSinkPropertyChange stores current A2DP state
+/* HandleSinkStatusChanged stores current A2DP state
  * Possible values: "disconnected", "connecting","connected", "playing"
  * 1. "disconnected" -> "connecting"
  *  Either an incoming or outgoing connection
@@ -138,18 +159,17 @@ RouteA2dpAudioPath()
  *     Disconnected from the remote device
  */
 void
-BluetoothA2dpManager::HandleSinkPropertyChange(const nsAString& aDeviceObjectPath,
-                         const nsAString& aNewState)
+BluetoothA2dpManager::HandleSinkStatusChanged(const nsAString& aDeviceAddress,
+                                              const nsAString& aState)
 {
-
-  if (aNewState.EqualsLiteral("connected")) {
+  if (aState.EqualsLiteral("connected")) {
     BT_LOG("A2DP connected!! Route path to a2dp");
-    BT_LOG("Currnet device: %s",NS_ConvertUTF16toUTF8(mConnectedDeviceAddress).get());
-    RouteA2dpAudioPath();
-  } else if (aNewState.EqualsLiteral("playing")) {
+    BT_LOG("Currnet device: %s",NS_ConvertUTF16toUTF8(mDeviceAddress).get());
+    NotifyAudioManager(aDeviceAddress);
+  } else if (aState.EqualsLiteral("playing")) {
     BT_LOG("Start streaming Route path to a2dp");
   }
-  mCurrentSinkState = ConvertSinkStringToState(aNewState);
+  mCurrentSinkState = ConvertSinkStringToState(aState);
   //TODO: Need to check Sink state and do more stuffs
 }
 
@@ -158,8 +178,7 @@ BluetoothA2dpManager::Connect(const nsAString& aDeviceAddress)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if ((mConnectedDeviceAddress != aDeviceAddress) &&
-      (!mConnectedDeviceAddress.IsEmpty())) {
+  if (mConnected && (mDeviceAddress != aDeviceAddress)) {
     NS_WARNING("BluetoothA2dpManager has connected/is connecting to a device!");
     return false;
   }
@@ -168,15 +187,11 @@ BluetoothA2dpManager::Connect(const nsAString& aDeviceAddress)
   NS_ENSURE_TRUE(bs, false);
 
   if (!bs->ConnectSink(aDeviceAddress)) {
-    BT_LOG("[A2DP] Connect failed!");
+    BT_LOG("[A2DP] Failed to start connecting to sink");
+    DispatchConnectionStatus(aDeviceAddress, false);
     return false;
   }
 
-  NotifyAudioManager(aDeviceAddress);
-  BT_LOG("[A2DP] Connect successfully!");
-
-  mConnectedDeviceAddress = aDeviceAddress;
-  BT_LOG("Connected Device address:%s", NS_ConvertUTF16toUTF8(mConnectedDeviceAddress).get() );
   return true;
 }
 
@@ -185,7 +200,7 @@ BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  if (mConnectedDeviceAddress.IsEmpty()) {
+  if (!mConnected) {
     NS_WARNING("BluetoothA2dpManager has been disconnected");
     return;
   }
@@ -198,8 +213,6 @@ BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
 
   NotifyAudioManager(NS_LITERAL_STRING("")); 
   BT_LOG("[A2DP] Disconnect successfully!");
-
-  mConnectedDeviceAddress.Truncate();
 }
 
 void
@@ -219,8 +232,8 @@ BluetoothA2dpManager::NotifyMusicPlayStatus()
 void
 BluetoothA2dpManager::GetConnectedSinkAddress(nsAString& aDeviceAddress)
 {
-  BT_LOG("mConnectedDeviceAddress: %s", NS_ConvertUTF16toUTF8(mConnectedDeviceAddress).get());
-  aDeviceAddress = mConnectedDeviceAddress;
+  BT_LOG("mDeviceAddress: %s", NS_ConvertUTF16toUTF8(mDeviceAddress).get());
+  aDeviceAddress = mDeviceAddress;
 }
 
 void
@@ -258,10 +271,10 @@ BluetoothA2dpManager::GetConnectionStatus()
   return mCurrentSinkState == BluetoothA2dpState::SINK_CONNECTED;
 }
 
-bool
+/*bool
 BluetoothA2dpManager::Listen()
 {
   BT_LOG("[A2DP] Listen");
   return true;
-}
+}*/
 

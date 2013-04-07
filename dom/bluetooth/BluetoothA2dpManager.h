@@ -21,6 +21,7 @@ enum BluetoothA2dpState {
   SINK_CONNECTED = 2,
   SINK_PLAYING = 3
 };
+
 class BluetoothA2dpManager : public BluetoothProfileManager
 {
 public:
@@ -28,21 +29,22 @@ public:
   static BluetoothA2dpManager* Get();
   bool Connect(const nsAString& aDeviceAddress);
   void Disconnect(const nsAString& aDeviceAddress);
-  bool Listen();
   void GetConnectedSinkAddress(nsAString& aDeviceAddress);
   bool GetConnectionStatus();
-  void ResetAudio();
   void NotifyMusicPlayStatus();
-  void HandleSinkPropertyChange(const nsAString& aDeviceObjectPath,
-                                const nsAString& newState);
-  void UpdateNotification(const nsAString& aDeviceObjectPath,
-                          const uint16_t aEventid, const uint32_t aData, BluetoothReplyRunnable* aRunnable);
+  void HandleSinkStatusChanged(const nsAString& aDeviceObjectPath,
+                               const nsAString& newState);
   void HandleCallStateChanged(uint16_t aCallState);
+  void DispatchConnectionStatus(const nsAString& aDeviceAddress,
+                                bool aIsConnected);
 private:
   BluetoothA2dpManager();
 
+  void NotifyAudioManager(const nsAString& aAddress);
+
   BluetoothA2dpState mCurrentSinkState;
-  nsString mConnectedDeviceAddress;
+  nsString mDeviceAddress;
+  bool mConnected;
   //AVRCP 1.3 fields
   nsString mTrackName;
   nsString mTrackNumber;
