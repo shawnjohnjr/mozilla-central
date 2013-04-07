@@ -290,10 +290,9 @@ public:
       return NS_ERROR_FAILURE;
     }
 
-
     BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
-    a2dp->HandleSinkPropertyChange(GetAddressFromObjectPath(mAddress),
-                                   property.value().get_nsString());
+    a2dp->HandleSinkStatusChanged(GetAddressFromObjectPath(mAddress),
+                                  property.value().get_nsString());
     return NS_OK;
   }
 

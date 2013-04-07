@@ -33,8 +33,8 @@ public:
   bool GetConnectionStatus();
   void ResetAudio();
   void NotifyMusicPlayStatus();
-  void HandleSinkPropertyChange(const nsAString& aDeviceObjectPath,
-                                const nsAString& newState);
+  void HandleSinkStatusChanged(const nsAString& aDeviceObjectPath,
+                               const nsAString& newState);
   void UpdateNotification(const nsAString& aDeviceObjectPath,
                           const uint16_t aEventid, const uint32_t aData, BluetoothReplyRunnable* aRunnable);
   void HandleCallStateChanged(uint16_t aCallState);
