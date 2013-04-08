@@ -12,6 +12,7 @@ import org.mozilla.gecko.Tabs;
 import org.mozilla.gecko.ZoomConstraints;
 import org.mozilla.gecko.util.EventDispatcher;
 import org.mozilla.gecko.util.FloatUtils;
+import org.mozilla.gecko.util.GamepadUtils;
 import org.mozilla.gecko.util.GeckoEventListener;
 import org.mozilla.gecko.util.ThreadUtils;
 
@@ -68,6 +69,9 @@ class JavaPanZoomController
 
     // The maximum zoom factor adjustment per frame of the AUTONAV animation
     private static final float MAX_ZOOM_DELTA = 0.125f;
+
+    // Length of the bounce animation in ms
+    private static final int BOUNCE_ANIMATION_DURATION = 250;
 
     private enum PanZoomState {
         NOTHING,        /* no touch-start events received */
@@ -507,34 +511,25 @@ class JavaPanZoomController
         return false;
     }
 
-    private float filterDeadZone(float value, InputDevice.MotionRange range) {
-        // The 1e-2 here should really be range.getFlat() + range.getFuzz() but the
-        // values those functions return on the Ouya are zero so we're just hard-coding
-        // it for now.
-        if (Math.abs(value) < 1e-2) {
-            return 0;
-        }
-        return value;
+    private float filterDeadZone(MotionEvent event, int axis) {
+        return (GamepadUtils.isValueInDeadZone(event, axis) ? 0 : event.getAxisValue(axis));
     }
 
-    private float normalizeJoystickScroll(float value, InputDevice.MotionRange range) {
-        return filterDeadZone(value, range) * MAX_SCROLL;
+    private float normalizeJoystickScroll(MotionEvent event, int axis) {
+        return filterDeadZone(event, axis) * MAX_SCROLL;
     }
 
-    private float normalizeJoystickZoom(float value, InputDevice.MotionRange range) {
+    private float normalizeJoystickZoom(MotionEvent event, int axis) {
         // negate MAX_ZOOM_DELTA so that pushing up on the stick zooms in
-        return filterDeadZone(value, range) * -MAX_ZOOM_DELTA;
+        return filterDeadZone(event, axis) * -MAX_ZOOM_DELTA;
     }
 
     // Since this event is a position-based event rather than a motion-based event, we need to
     // set up an AUTONAV animation to keep scrolling even while we don't get events.
     private boolean handleJoystickNav(MotionEvent event) {
-        float velocityX = normalizeJoystickScroll(event.getAxisValue(MotionEvent.AXIS_X),
-                                                  event.getDevice().getMotionRange(MotionEvent.AXIS_X));
-        float velocityY = normalizeJoystickScroll(event.getAxisValue(MotionEvent.AXIS_Y),
-                                                  event.getDevice().getMotionRange(MotionEvent.AXIS_Y));
-        float zoomDelta = normalizeJoystickZoom(event.getAxisValue(MotionEvent.AXIS_RZ),
-                                                event.getDevice().getMotionRange(MotionEvent.AXIS_RZ));
+        float velocityX = normalizeJoystickScroll(event, MotionEvent.AXIS_X);
+        float velocityY = normalizeJoystickScroll(event, MotionEvent.AXIS_Y);
+        float zoomDelta = normalizeJoystickZoom(event, MotionEvent.AXIS_RZ);
 
         if (velocityX == 0 && velocityY == 0 && zoomDelta == 0) {
             if (mState == PanZoomState.AUTONAV) {
@@ -808,7 +803,7 @@ class JavaPanZoomController
             }
 
             /* Perform the next frame of the bounce-back animation. */
-            if (mBounceFrame < (int)(256f/Axis.MS_PER_FRAME)) {
+            if (mBounceFrame < (int)(BOUNCE_ANIMATION_DURATION / Axis.MS_PER_FRAME)) {
                 advanceBounce();
                 return;
             }
@@ -822,7 +817,7 @@ class JavaPanZoomController
         /* Performs one frame of a bounce animation. */
         private void advanceBounce() {
             synchronized (mTarget.getLock()) {
-                float t = easeOut(mBounceFrame * Axis.MS_PER_FRAME / 256f);
+                float t = easeOut(mBounceFrame * Axis.MS_PER_FRAME / BOUNCE_ANIMATION_DURATION);
                 ImmutableViewportMetrics newMetrics = mBounceStartMetrics.interpolate(mBounceEndMetrics, t);
                 mTarget.setViewportMetrics(newMetrics);
                 mBounceFrame++;

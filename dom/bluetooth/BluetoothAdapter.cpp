@@ -67,7 +67,7 @@ public:
     MOZ_ASSERT(aReq && aAdapterPtr);
   }
 
-  virtual bool ParseSuccessfulReply(jsval* aValue)
+  virtual bool ParseSuccessfulReply(JS::Value* aValue)
   {
     *aValue = JSVAL_VOID;
 
@@ -417,7 +417,7 @@ BluetoothAdapter::GetDiscoverableTimeout(uint32_t* aDiscoverableTimeout)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
+BluetoothAdapter::GetDevices(JSContext* aCx, JS::Value* aDevices)
 {
   if (mJsDeviceAddresses) {
     aDevices->setObject(*mJsDeviceAddresses);
@@ -430,7 +430,7 @@ BluetoothAdapter::GetDevices(JSContext* aCx, jsval* aDevices)
 }
 
 NS_IMETHODIMP
-BluetoothAdapter::GetUuids(JSContext* aCx, jsval* aValue)
+BluetoothAdapter::GetUuids(JSContext* aCx, JS::Value* aValue)
 {
   if (mJsUuids) {
     aValue->setObject(*mJsUuids);

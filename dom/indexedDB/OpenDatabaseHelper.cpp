@@ -1497,9 +1497,7 @@ public:
     NS_ASSERTION(aRequestingDatabase, "Null pointer!");
     NS_ASSERTION(aRequest, "Null pointer!");
 
-    if (!mWaitingDatabases.SwapElements(aWaitingDatabases)) {
-      NS_ERROR("This should never fail!");
-    }
+    mWaitingDatabases.SwapElements(aWaitingDatabases);
   }
 
   NS_IMETHOD Run()
@@ -1651,7 +1649,7 @@ OpenDatabaseHelper::DoDatabaseWork()
 
   nsresult rv =
     quotaManager->EnsureOriginIsInitialized(mASCIIOrigin,
-                                            mPrivilege,
+                                            mTrackingQuota,
                                             getter_AddRefs(dbDirectory));
   NS_ENSURE_SUCCESS(rv, NS_ERROR_DOM_INDEXEDDB_UNKNOWN_ERR);
 

@@ -100,6 +100,13 @@ js::ObjectImpl::getDenseInitializedLength()
     return getElementsHeader()->initializedLength;
 }
 
+inline uint32_t
+js::ObjectImpl::getDenseCapacity()
+{
+    MOZ_ASSERT(isNative());
+    return getElementsHeader()->capacity;
+}
+
 inline js::HeapSlotArray
 js::ObjectImpl::getDenseElements()
 {
@@ -391,7 +398,7 @@ js::ObjectImpl::writeBarrierPre(ObjectImpl *obj)
      * This would normally be a null test, but TypeScript::global uses 0x1 as a
      * special value.
      */
-    if (IsNullTaggedPointer(obj))
+    if (IsNullTaggedPointer(obj) || !obj->runtime()->needsBarrier())
         return;
 
     Zone *zone = obj->zone();

@@ -2167,4 +2167,7 @@ GK_ATOM(onspeechend, "onspeechend")
 GK_ATOM(onresult, "onresult")
 GK_ATOM(onnomatch, "onnomatch")
 GK_ATOM(onstart, "onstart")
+GK_ATOM(onresume, "onresume")
+GK_ATOM(onmark, "onmark")
+GK_ATOM(onboundary, "onboundary")
 #endif

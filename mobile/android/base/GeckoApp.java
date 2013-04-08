@@ -6,7 +6,6 @@
 package org.mozilla.gecko;
 
 import org.mozilla.gecko.background.announcements.AnnouncementsBroadcastService;
-import org.mozilla.gecko.db.BrowserContract;
 import org.mozilla.gecko.db.BrowserDB;
 import org.mozilla.gecko.gfx.Layer;
 import org.mozilla.gecko.gfx.LayerView;
@@ -17,6 +16,7 @@ import org.mozilla.gecko.updater.UpdateService;
 import org.mozilla.gecko.updater.UpdateServiceHelper;
 import org.mozilla.gecko.util.GeckoEventListener;
 import org.mozilla.gecko.util.GeckoEventResponder;
+import org.mozilla.gecko.util.HardwareUtils;
 import org.mozilla.gecko.util.ThreadUtils;
 import org.mozilla.gecko.util.UiAsyncTask;
 
@@ -182,10 +182,6 @@ abstract public class GeckoApp
     private String mPrivateBrowsingSession;
 
     private PointF mInitialTouchPoint = null;
-
-    private static Boolean sIsLargeTablet = null;
-    private static Boolean sIsSmallTablet = null;
-    private static Boolean sIsTouchDevice = null;
 
     abstract public int getLayout();
     abstract public boolean hasTabsSideBar();
@@ -477,7 +473,7 @@ abstract public class GeckoApp
     @Override
     public void showMenu(View menu) {
         // Hide the menu only if we are showing the MenuPopup.
-        if (!hasPermanentMenuKey())
+        if (!HardwareUtils.hasMenuButton())
             closeMenu();
 
         mMenuPanel.removeAllViews();
@@ -721,18 +717,6 @@ abstract public class GeckoApp
     public boolean autoHideTabs() { return false; }
 
     public boolean areTabsShown() { return false; }
-
-    public boolean hasPermanentMenuKey() {
-        boolean hasMenu = true;
-
-        if (Build.VERSION.SDK_INT >= 11)
-            hasMenu = false;
-
-        if (Build.VERSION.SDK_INT >= 14)
-            hasMenu = ViewConfiguration.get(GeckoApp.mAppContext).hasPermanentMenuKey();
-
-        return hasMenu;
-    }
 
     @Override
     public void handleMessage(String event, JSONObject message) {
@@ -1316,47 +1300,6 @@ abstract public class GeckoApp
                     window.getDecorView().setSystemUiVisibility(fullscreen ? 1 : 0);
             }
         });
-    }
-
-    public boolean isTablet() {
-        return isLargeTablet() || isSmallTablet();
-    }
-
-    public boolean isLargeTablet() {
-        if (sIsLargeTablet == null) {
-            int screenLayout = getResources().getConfiguration().screenLayout;
-            sIsLargeTablet = (Build.VERSION.SDK_INT >= 11 &&
-                              ((screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK) == Configuration.SCREENLAYOUT_SIZE_XLARGE));
-        }
-
-        return sIsLargeTablet;
-    }
-
-    public boolean isSmallTablet() {
-        if (sIsSmallTablet == null) {
-            int screenLayout = getResources().getConfiguration().screenLayout;
-            sIsSmallTablet = (Build.VERSION.SDK_INT >= 11 &&
-                              ((screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK) == Configuration.SCREENLAYOUT_SIZE_LARGE));
-        }
-
-        return sIsSmallTablet;
-    }
-
-    public boolean isTouchDevice() {
-        if (sIsTouchDevice == null) {
-            if (Build.VERSION.SDK_INT >= 9) {
-                sIsTouchDevice = false;
-                for (int inputDeviceId : InputDevice.getDeviceIds()) {
-                    if ((InputDevice.getDevice(inputDeviceId).getSources() & InputDevice.SOURCE_TOUCHSCREEN) == InputDevice.SOURCE_TOUCHSCREEN) {
-                        sIsTouchDevice = true;
-                    }
-                }
-            } else {
-                // pre-gingerbread just assume everything is touch-enabled
-                sIsTouchDevice = true;
-            }
-        }
-        return sIsTouchDevice;
     }
 
     /** Called when the activity is first created. */
@@ -1985,9 +1928,6 @@ abstract public class GeckoApp
                 SharedPreferences.Editor editor = prefs.edit();
                 editor.putBoolean(GeckoApp.PREFS_WAS_STOPPED, true);
                 editor.commit();
-
-                BrowserDB.expireHistory(getContentResolver(),
-                                        BrowserContract.ExpirePriority.NORMAL);
             }
         });
 
@@ -2335,7 +2275,7 @@ abstract public class GeckoApp
             return;
         }
 
-        if (mLayerView.isFullScreen()) {
+        if (mLayerView != null && mLayerView.isFullScreen()) {
             GeckoAppShell.sendEventToGecko(GeckoEvent.createBroadcastEvent("FullScreen:Exit", null));
             return;
         }
@@ -2603,6 +2543,19 @@ abstract public class GeckoApp
             }
             case R.id.share: {
                 shareCurrentUrl();
+                return true;
+            }
+            case R.id.subscribe: {
+                Tab tab = Tabs.getInstance().getSelectedTab();
+                if (tab != null && tab.getFeedsEnabled()) {
+                    JSONObject args = new JSONObject();
+                    try {
+                        args.put("tabId", tab.getId());
+                    } catch (JSONException e) {
+                        Log.e(LOGTAG, "error building json arguments");
+                    }
+                    GeckoAppShell.sendEventToGecko(GeckoEvent.createBroadcastEvent("Feeds:Subscribe", args.toString()));
+                }
                 return true;
             }
             case R.id.copyurl: {
