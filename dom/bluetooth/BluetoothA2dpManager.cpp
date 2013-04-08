@@ -28,6 +28,7 @@ namespace {
 BluetoothA2dpManager::BluetoothA2dpManager()
 {
   mDeviceAddress.Truncate();
+  mConnected = false;
   mListener = new BluetoothTelephonyListener();
 
   if (!mListener->StartListening()) {
@@ -53,12 +54,10 @@ BluetoothA2dpManager::Get()
 
   // If we already exist, exit early
   if (gBluetoothA2dpManager) {
-    BT_LOG("return existing BluetoothA2dpManager");
     return gBluetoothA2dpManager;
   }
 
   gBluetoothA2dpManager = new BluetoothA2dpManager();
-  BT_LOG("A new BluetoothA2dpManager");
   return gBluetoothA2dpManager;
 };
 
@@ -73,7 +72,7 @@ ConvertSinkStringToState(const nsAString& aNewState)
     return BluetoothA2dpState::SINK_CONNECTED;
   if (aNewState.EqualsLiteral("playing"))
     return BluetoothA2dpState::SINK_PLAYING;
-    return BluetoothA2dpState::SINK_DISCONNECTED;
+  return BluetoothA2dpState::SINK_DISCONNECTED;
 }
 
 static void
@@ -100,7 +99,7 @@ BluetoothA2dpManager::DispatchConnectionStatus(const nsAString& aDeviceAddress,
     NS_LITERAL_STRING("status"), aIsConnected));
 
   BluetoothSignal signal(NS_LITERAL_STRING("A2dpStatusChanged"),
-                         NS_LITERAL_STRING(KEY_MANAGER), data);
+                         NS_LITERAL_STRING(KEY_ADAPTER), data);
   BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE_VOID(bs);
   bs->DistributeSignal(signal);
@@ -176,8 +175,10 @@ BluetoothA2dpManager::HandleSinkStatusChanged(const nsAString& aDeviceAddress,
 bool
 BluetoothA2dpManager::Connect(const nsAString& aDeviceAddress)
 {
+  BT_LOG("[A2DP] %s, %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get());
   MOZ_ASSERT(NS_IsMainThread());
 
+  BT_LOG("[A2DP] mConnected: %d, mDeviceAddress: %s", mConnected, NS_ConvertUTF16toUTF8(mDeviceAddress).get());
   if (mConnected && (mDeviceAddress != aDeviceAddress)) {
     NS_WARNING("BluetoothA2dpManager has connected/is connecting to a device!");
     return false;
@@ -198,7 +199,8 @@ BluetoothA2dpManager::Connect(const nsAString& aDeviceAddress)
 void
 BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
 {
-  MOZ_ASSERT(NS_IsMainThread());
+  BT_LOG("[A2DP] %s", __FUNCTION__);
+  MOZ_ASSERT(NS_IsMainThread(),);
 
   if (!mConnected) {
     NS_WARNING("BluetoothA2dpManager has been disconnected");

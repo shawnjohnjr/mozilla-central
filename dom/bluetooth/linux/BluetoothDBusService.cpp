@@ -999,16 +999,43 @@ RunDBusCallback(DBusMessage* aMsg, void* aBluetoothReplyRunnable,
   DispatchBluetoothReply(replyRunnable, v, replyError);
 }
 
+class DispatchA2dpConnectionStatusTask : public nsRunnable
+{
+public:
+  DispatchA2dpConnectionStatusTask(const nsAString& aAddress, bool aIsConnected)
+    : mAddress(aAddress), mIsConnected(aIsConnected)
+  {
+//    MOZ_ASSERT(!NS_IsMainThread());
+//    XXX: DisconnectSinkCallback is run on main thread somehow?!
+  }
+
+  NS_IMETHOD
+  Run()
+  {
+    BT_LOG("[B] DispatchA2dpConnectionStatusTask::Run");
+//    MOZ_ASSERT(NS_IsMainThread());
+
+    BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+    NS_ENSURE_TRUE(a2dp, NS_ERROR_FAILURE);
+
+    a2dp->DispatchConnectionStatus(mAddress, mIsConnected);
+    return NS_OK;
+  }
+
+private:
+  nsString mAddress;
+  bool mIsConnected;
+};
+
 void
 RunSinkCallback(DBusMessage* aMsg, void* aParam, bool aExpectedResult)
 {
-  BT_LOG("[B] %s", __FUNCTION__);
-
   DBusError err;
   dbus_error_init(&err);
 
   const char* path = (const char*)aParam;
-  nsString address = NS_ConvertUTF8toUTF16(path);
+  BT_LOG("[B] %s, path: %s, aExpectedResult: %d", __FUNCTION__, path, aExpectedResult);
+  nsString address = GetAddressFromObjectPath(NS_ConvertUTF8toUTF16(path));
   delete [] path;
 
   bool isConnected = aExpectedResult;
@@ -1019,10 +1046,11 @@ RunSinkCallback(DBusMessage* aMsg, void* aParam, bool aExpectedResult)
     isConnected = !isConnected;
   }
 
-  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
-  NS_ENSURE_TRUE_VOID(a2dp);
-
-  a2dp->DispatchConnectionStatus(address, isConnected);
+  nsRefPtr<DispatchA2dpConnectionStatusTask> task =
+    new DispatchA2dpConnectionStatusTask(address, isConnected);
+  if (NS_FAILED(NS_DispatchToMainThread(task))) {
+    NS_WARNING("Failed to dispatch to main thread!");
+  }
 }
 
 void
@@ -1040,7 +1068,7 @@ DisconnectSinkCallback(DBusMessage* aMsg, void* aParam)
 void
 RunCTLCallback(DBusMessage* aMsg, void* aParam)
 {
-  BT_LOG("RunCTLCallBack");
+  BT_LOG("[B] %s", __FUNCTION__);
 
 /*  DBusError err;
   dbus_error_init(&err);
@@ -3010,8 +3038,7 @@ BluetoothDBusService::ConnectSink(const nsAString& aDeviceAddress)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  BT_LOG("ConnectSink");
-  BT_LOG(NS_ConvertUTF16toUTF8(aDeviceAddress).get());
+  BT_LOG("[B] %s, %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get());
 
   // Created rawPath for further use (in callback funciton)
   nsString path = GetObjectPathFromAddress(sAdapterPath, aDeviceAddress);
