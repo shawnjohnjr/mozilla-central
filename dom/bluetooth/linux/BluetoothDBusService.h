@@ -149,6 +149,9 @@ public:
   virtual bool
   ConnectDisconnectSink(bool aConnect, const nsAString& aDeviceAddress);
 
+  virtual bool
+  ResumeSuspendSink(bool aResume, const nsAString& aDeviceAddress);
+
   virtual nsresult
   UpdatePlayStatus(uint32_t aDuration,
                    uint32_t aPosition,
@@ -168,12 +171,6 @@ public:
   UpdateNotification(uint32_t aEventid,
                      uint32_t aData,
                      BluetoothReplyRunnable* aRunnable);
-
-  virtual bool
-  SuspendSink(const nsAString& aDeviceAddress);
-
-  virtual bool
-  ResumeSink(const nsAString& aDeviceAddress);
 
 /*  virtual void
   GetConnectedSinkAddress(nsAString& aConnectedSinkAddr,

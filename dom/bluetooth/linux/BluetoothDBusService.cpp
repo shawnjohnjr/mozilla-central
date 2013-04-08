@@ -1029,7 +1029,9 @@ private:
 };
 
 void
-RunSinkCallback(DBusMessage* aMsg, void* aParam, bool aExpectedResult)
+ConnectDisconnectSinkCallback(bool aExpectedResult,
+                              DBusMessage* aMsg,
+                              void* aParam)
 {
   DBusError err;
   dbus_error_init(&err);
@@ -1042,7 +1044,7 @@ RunSinkCallback(DBusMessage* aMsg, void* aParam, bool aExpectedResult)
   bool isConnected = aExpectedResult;
 
   if (dbus_set_error_from_message(&err, aMsg)) {
-    BT_LOG("[B] %s error", __FUNCTION__);
+    BT_LOG("Failed to Connect/Disconnect Sink: %s", __FUNCTION__, err.message);
     LOG_AND_FREE_DBUS_ERROR(&err);
     isConnected = !isConnected;
   }
@@ -1055,15 +1057,32 @@ RunSinkCallback(DBusMessage* aMsg, void* aParam, bool aExpectedResult)
 }
 
 void
+ResumeSuspendSinkCallback(DBusMessage* aMsg, void* aParam)
+{
+  DBusError err;
+  dbus_error_init(&err);
+
+  const char* path = (const char*)aParam;
+  BT_LOG("[B] %s, path: %s", __FUNCTION__, path);
+  nsString address = GetAddressFromObjectPath(NS_ConvertUTF8toUTF16(path));
+  delete [] path;
+
+  if (dbus_set_error_from_message(&err, aMsg)) {
+    BT_LOG("Failed to Resume/Suspend Sink: %s", __FUNCTION__, err.message);
+    LOG_AND_FREE_DBUS_ERROR(&err);
+  }
+}
+
+void
 ConnectSinkCallback(DBusMessage* aMsg, void* aParam)
 {
-  RunSinkCallback(aMsg, aParam, true);
+  ConnectDisconnectSinkCallback(true, aMsg, aParam);
 }
 
 void
 DisconnectSinkCallback(DBusMessage* aMsg, void* aParam)
 {
-  RunSinkCallback(aMsg, aParam, false);
+  ConnectDisconnectSinkCallback(false, aMsg, aParam);
 }
 
 void
@@ -3036,50 +3055,54 @@ BluetoothDBusService::ConnectDisconnectSink(bool aConnect, const nsAString& aDev
     callback = DisconnectSinkCallback;
   }
 
-  return dbus_func_args_async(mConnection,
-                              -1,
-                              callback,
-                              (void*)rawPath,
-                              rawPath,
-                              DBUS_SINK_IFACE,
-                              NS_ConvertUTF16toUTF8(command).get(),
-                              DBUS_TYPE_INVALID);
-}
-
-bool
-BluetoothDBusService::SuspendSink(const nsAString& aDeviceObjectPath)
-{
-//  nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
-  // TODO: Need a new callback here
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
-                                  NULL,
-//                                  (void*)runnable,
-                                  NULL,
-                                  NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
+                                  callback,
+                                  (void*)rawPath,
+                                  rawPath,
                                   DBUS_SINK_IFACE,
-                                  "Suspend",
+                                  NS_ConvertUTF16toUTF8(command).get(),
                                   DBUS_TYPE_INVALID);
   if (!ret) {
     NS_WARNING("Could not start async function!");
     return false;
   }
 
-//  runnable.forget();
   return ret;
 }
 
 bool
-BluetoothDBusService::ResumeSink(const nsAString& aDeviceObjectPath)
+BluetoothDBusService::ResumeSuspendSink(bool aResume, const nsAString& aDeviceAddress)
 {
-  // TODO: Need a new callback here
+  MOZ_ASSERT(NS_IsMainThread());
+
+  if (!IsReady()) {
+    NS_WARNING("Bluetooth service not started yet!");
+    return false;
+  }
+
+  BT_LOG("[B] %s, aResume: %d, aDeviceAddress: %s", __FUNCTION__, aResume, NS_ConvertUTF16toUTF8(aDeviceAddress).get());
+
+  // Created rawPath for further use (in callback funciton)
+  nsString path = GetObjectPathFromAddress(sAdapterPath, aDeviceAddress);
+  char* rawPath = new char[path.Length() + 1];
+  strcpy(rawPath, NS_ConvertUTF16toUTF8(path).get());
+
+  BT_LOG("RawPath: %s", rawPath);
+
+  nsString command = NS_LITERAL_STRING("Resume");
+  SinkCallback callback = ResumeSuspendSinkCallback;
+  if (!aResume) {
+    command.AssignLiteral("Suspend");
+  }
+
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
-                                  NULL,
-                                  NULL,
-                                  NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
+                                  callback,
+                                  (void*)rawPath,
+                                  rawPath,
                                   DBUS_SINK_IFACE,
-                                  "Resume",
+                                  NS_ConvertUTF16toUTF8(command).get(),
                                   DBUS_TYPE_INVALID);
   if (!ret) {
     NS_WARNING("Could not start async function!");

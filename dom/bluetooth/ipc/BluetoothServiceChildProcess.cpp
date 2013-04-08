@@ -390,6 +390,14 @@ BluetoothServiceChildProcess::ConnectDisconnectSink(
   return false;
 }
 
+bool
+BluetoothServiceChildProcess::ResumeSuspendSink(bool aResume,
+                                                const nsAString& aDeviceAddress)
+{
+  MOZ_NOT_REACHED("This should never be called!");
+  return false;
+}
+
 nsresult
 BluetoothServiceChildProcess::UpdatePlayStatus(uint32_t aDuration,
                                                uint32_t aPosition,

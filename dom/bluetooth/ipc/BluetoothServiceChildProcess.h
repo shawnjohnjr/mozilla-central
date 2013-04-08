@@ -149,6 +149,9 @@ public:
   virtual bool
   ConnectDisconnectSink(bool aConnect, const nsAString& aDeviceAddress) MOZ_OVERRIDE;
 
+  virtual bool
+  ResumeSuspendSink(bool aResume, const nsAString& aDeviceAddress) MOZ_OVERRIDE;
+
   virtual nsresult
   UpdatePlayStatus(uint32_t aDuration,
                    uint32_t aPosition,
