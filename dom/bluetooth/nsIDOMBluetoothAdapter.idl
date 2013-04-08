@@ -66,6 +66,9 @@ interface nsIDOMBluetoothAdapter : nsIDOMEventTarget
 
   // Fired when pairing process is completed
   [implicit_jscontext] attribute jsval onpairedstatuschanged;
+
+  [implicit_jscontext] attribute jsval onhfpstatuschanged;
+  [implicit_jscontext] attribute jsval ona2dpstatuschanged;
 };
 
 /**

@@ -505,7 +505,7 @@ BluetoothHfpManager::DispatchConnectionStatus()
     NS_LITERAL_STRING("status"), isConnected));
 
   BluetoothSignal signal(NS_LITERAL_STRING("HfpStatusChanged"),
-                         NS_LITERAL_STRING(KEY_MANAGER), data);
+                         NS_LITERAL_STRING(KEY_ADAPTER), data);
   BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE_VOID(bs);
   bs->DistributeSignal(signal);
@@ -1390,15 +1390,15 @@ BluetoothHfpManager::OnDisconnect()
     Listen();
     BroadcastConnectionStatus();
     DispatchConnectionStatus();
+
+    BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
+    NS_ENSURE_TRUE_VOID(a2dp);
+    a2dp->Disconnect(mDeviceAddress);
   } else if (mSocketStatus == SocketConnectionStatus::SOCKET_CONNECTING) {
     NS_WARNING("BluetoothHfpManager got unexpected socket status!");
   }
 
   CloseScoSocket();
-
-  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
-  NS_ENSURE_TRUE_VOID(a2dp);
-  a2dp->Disconnect(mDeviceAddress);
 
   Reset();
 }

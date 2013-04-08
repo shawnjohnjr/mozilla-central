@@ -295,10 +295,16 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
 
     MOZ_ASSERT(arr.Length() == 1);
     SetPropertyByValue(arr[0]);
-  } else if (aData.name().EqualsLiteral("PairedStatusChanged")) {
+  } else if (aData.name().EqualsLiteral("PairedStatusChanged") ||
+             aData.name().EqualsLiteral("HfpStatusChanged") ||
+             aData.name().EqualsLiteral("A2dpStatusChanged")) {
+    nsAutoString name;
+    ToLowerCase(aData.name(), name);
+    BT_LOG("[A] name: %s", NS_ConvertUTF16toUTF8(name).get());
+
     MOZ_ASSERT(v.type() == BluetoothValue::TArrayOfBluetoothNamedValue);
     const InfallibleTArray<BluetoothNamedValue>& arr =
-      aData.value().get_ArrayOfBluetoothNamedValue();
+      v.get_ArrayOfBluetoothNamedValue();
 
     MOZ_ASSERT(arr.Length() == 2 &&
                arr[0].value().type() == BluetoothValue::TnsString &&
@@ -307,15 +313,14 @@ BluetoothAdapter::Notify(const BluetoothSignal& aData)
     bool status = arr[1].value().get_bool();
 
     BT_LOG("[A] address: %s, status: %d",
-      NS_ConvertUTF16toUTF8(address).get(), status);
+           NS_ConvertUTF16toUTF8(address).get(), status);
 
     nsCOMPtr<nsIDOMEvent> event;
     NS_NewDOMBluetoothStatusChangedEvent(
       getter_AddRefs(event), this, nullptr, nullptr);
 
     nsCOMPtr<nsIDOMBluetoothStatusChangedEvent> e = do_QueryInterface(event);
-    e->InitBluetoothStatusChangedEvent(NS_LITERAL_STRING("pairedstatuschanged"),
-                                       false, false, address, status);
+    e->InitBluetoothStatusChangedEvent(name, false, false, address, status);
     DispatchTrustedEvent(event);
   } else {
 #ifdef DEBUG
@@ -862,3 +867,6 @@ BluetoothAdapter::ConfirmReceivingFile(const nsAString& aDeviceAddress,
 
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, devicefound)
 NS_IMPL_EVENT_HANDLER(BluetoothAdapter, pairedstatuschanged)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, hfpstatuschanged)
+NS_IMPL_EVENT_HANDLER(BluetoothAdapter, a2dpstatuschanged)
+
