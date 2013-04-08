@@ -3086,7 +3086,6 @@ BluetoothDBusService::DisconnectSink(const nsAString& aDeviceAddress)
                               DBUS_TYPE_INVALID);
 }
 
-// XXX: Why we need this function? Is it a DOMRequest?
 bool
 BluetoothDBusService::SuspendSink(const nsAString& aDeviceObjectPath,
                                   BluetoothReplyRunnable* aRunnable)

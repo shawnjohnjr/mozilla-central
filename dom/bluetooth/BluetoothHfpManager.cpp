@@ -31,6 +31,7 @@
 #define MOZSETTINGS_CHANGED_ID "mozsettings-changed"
 #define MOBILE_CONNECTION_ICCINFO_CHANGED "mobile-connection-iccinfo-changed"
 #define MOBILE_CONNECTION_VOICE_CHANGED "mobile-connection-voice-changed"
+#define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
 
 /**
  * These constants are used in result code such as +CLIP and +CCWA. The value
@@ -260,6 +261,30 @@ BluetoothHfpManagerObserver::Observe(nsISupports* aSubject,
 }
 
 NS_IMPL_ISUPPORTS1(BluetoothHfpManagerObserver, nsIObserver)
+
+void
+BluetoothHfpManager::NotifyAudioManager(const nsAString& aAddress) {
+  // Whenever we get RFCOMM connected, we shall always notify audio
+  // manager to do setDeviceConnectionState
+  MOZ_ASSERT(NS_IsMainThread());
+
+  nsCOMPtr<nsIObserverService> obs =
+    do_GetService("@mozilla.org/observer-service;1");
+  NS_ENSURE_TRUE_VOID(obs);
+
+  if (aAddress.IsEmpty()) {
+    if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, nullptr))) {
+      NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
+      return;
+    }
+  } else {
+    if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, aAddress.BeginReading()))) {
+      NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
+      return;
+    }
+  }
+
+}
 
 class SendRingIndicatorTask : public Task
 {
@@ -1352,6 +1377,7 @@ BluetoothHfpManager::OnConnectSuccess()
   // Cache device path for BroadcastConnectionStatus() since we can't get socket address
   // when a headset disconnect with us
   GetSocketAddr(mDeviceAddress);
+  NotifyAudioManager(mDeviceAddress);
   mSocketStatus = GetConnectionStatus();
 
   BroadcastConnectionStatus();

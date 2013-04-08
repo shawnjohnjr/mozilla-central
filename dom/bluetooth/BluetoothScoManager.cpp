@@ -19,8 +19,6 @@
 #include "nsIAudioManager.h"
 #include "nsIObserverService.h"
 
-#define BLUETOOTH_SCO_STATUS_CHANGED "bluetooth-sco-status-changed"
-
 using namespace mozilla;
 using namespace mozilla::ipc;
 USING_BLUETOOTH_NAMESPACE
@@ -68,22 +66,6 @@ void
 BluetoothScoManager::NotifyAudioManager(const nsAString& aAddress) {
   MOZ_ASSERT(NS_IsMainThread());
 
-  nsCOMPtr<nsIObserverService> obs =
-    do_GetService("@mozilla.org/observer-service;1");
-  NS_ENSURE_TRUE_VOID(obs);
-
-  if (aAddress.IsEmpty()) {
-    if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, nullptr))) {
-      NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
-      return;
-    }
-  } else {
-    if (NS_FAILED(obs->NotifyObservers(nullptr, BLUETOOTH_SCO_STATUS_CHANGED, aAddress.BeginReading()))) {
-      NS_WARNING("Failed to notify bluetooth-sco-status-changed observsers!");
-      return;
-    }
-  }
-
   nsCOMPtr<nsIAudioManager> am =
     do_GetService("@mozilla.org/telephony/audiomanager;1");
   NS_ENSURE_TRUE_VOID(am);
@@ -104,7 +86,7 @@ BluetoothScoManagerObserver::Observe(nsISupports* aSubject,
                                      const PRUnichar* aData)
 {
   MOZ_ASSERT(gBluetoothScoManager);
-  if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {    
+  if (!strcmp(aTopic, NS_XPCOM_SHUTDOWN_OBSERVER_ID)) {
     return gBluetoothScoManager->HandleShutdown();
   }
 
