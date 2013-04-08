@@ -69,7 +69,11 @@ BluetoothScoManager::NotifyAudioManager(const nsAString& aAddress) {
   nsCOMPtr<nsIAudioManager> am =
     do_GetService("@mozilla.org/telephony/audiomanager;1");
   NS_ENSURE_TRUE_VOID(am);
-  am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_BT_SCO);
+  if (aAddress.IsEmpty()) {
+    am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_NONE);
+  } else {
+    am->SetForceForUse(am->USE_COMMUNICATION, am->FORCE_BT_SCO);
+  }
 }
 
 NS_IMPL_ISUPPORTS1(BluetoothScoManagerObserver, nsIObserver)
