@@ -21,5 +21,4 @@ interface nsIDOMBluetoothManager : nsIDOMEventTarget
   [implicit_jscontext] attribute jsval onenabled;
   [implicit_jscontext] attribute jsval ondisabled;
   [implicit_jscontext] attribute jsval onadapteradded;
-  [implicit_jscontext] attribute jsval onhfpstatuschanged;
 };
