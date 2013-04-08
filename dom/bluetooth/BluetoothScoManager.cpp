@@ -63,7 +63,8 @@ public:
 };
 
 void
-BluetoothScoManager::NotifyAudioManager(const nsAString& aAddress) {
+BluetoothScoManager::NotifyAudioManager(const nsAString& aAddress)
+{
   MOZ_ASSERT(NS_IsMainThread());
 
   nsCOMPtr<nsIAudioManager> am =

@@ -84,6 +84,7 @@ private:
   void Reset();
   void ResetCallArray();
 
+  void NotifyAudioManager(const nsAString& aAddress);
   void NotifyDialer(const nsAString& aCommand);
   void BroadcastConnectionStatus();
   void DispatchConnectionStatus();
@@ -91,7 +92,6 @@ private:
   bool SendCommand(const char* aCommand, uint8_t aValue = 0);
   bool SendLine(const char* aMessage);
   void UpdateCIND(uint8_t aType, uint8_t aValue, bool aSend);
-  void NotifyAudioManager(const nsAString& aAddress);
   virtual void OnConnectSuccess() MOZ_OVERRIDE;
   virtual void OnConnectError() MOZ_OVERRIDE;
   virtual void OnDisconnect() MOZ_OVERRIDE;

@@ -158,6 +158,7 @@ static PRInt32 sIsPairing = 0;
 static nsString sAdapterPath;
 
 typedef void (*UnpackFunc)(DBusMessage*, DBusError*, BluetoothValue&, nsAString&);
+typedef void (*SinkCallback)(DBusMessage*, void*);
 
 class RemoveDeviceTask : public nsRunnable {
 public:
@@ -1063,30 +1064,6 @@ void
 DisconnectSinkCallback(DBusMessage* aMsg, void* aParam)
 {
   RunSinkCallback(aMsg, aParam, false);
-}
-
-void
-RunCTLCallback(DBusMessage* aMsg, void* aParam)
-{
-  BT_LOG("[B] %s", __FUNCTION__);
-
-/*  DBusError err;
-  dbus_error_init(&err);
-  BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
-  NS_ENSURE_TRUE_VOID(a2dp);
-
-  const char* path = (const char*)aParam;
-  nsString address = NS_ConvertUTF8toUTF16(path);
-  delete [] path;
-
-  if (!dbus_set_error_from_message(&err, aMsg)) {
-    a2dp->BroadcastConnectionStatus(address);
-    return;
-  }
-  
-  BT_LOG("RunSinkCallback error");
-  LOG_AND_FREE_DBUS_ERROR(&err);
-  a2dp->BroadcastConnectionStatus(NS_LITERAL_STRING(""));*/
 }
 
 void
@@ -3034,40 +3011,16 @@ BluetoothDBusService::ListenSocketViaService(
 }
 
 bool
-BluetoothDBusService::ConnectSink(const nsAString& aDeviceAddress)
+BluetoothDBusService::ConnectDisconnectSink(bool aConnect, const nsAString& aDeviceAddress)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
-  BT_LOG("[B] %s, %s", __FUNCTION__, NS_ConvertUTF16toUTF8(aDeviceAddress).get());
-
-  // Created rawPath for further use (in callback funciton)
-  nsString path = GetObjectPathFromAddress(sAdapterPath, aDeviceAddress);
-  char* rawPath = new char[path.Length() + 1];
-  strcpy(rawPath, NS_ConvertUTF16toUTF8(path).get());
-
-  BT_LOG("RawPath: %s", rawPath);
-
-  return dbus_func_args_async(mConnection,
-                              -1,
-                              ConnectSinkCallback,
-                              (void*)rawPath,
-                              rawPath,
-                              DBUS_SINK_IFACE,
-                              "Connect",
-                              DBUS_TYPE_INVALID);
-}
-
-bool
-BluetoothDBusService::DisconnectSink(const nsAString& aDeviceAddress)
-{
-  MOZ_ASSERT(NS_IsMainThread());
-
-  if (!mConnection) {
-    return true;
+  if (!IsReady()) {
+    NS_WARNING("Bluetooth service not started yet!");
+    return false;
   }
 
-  BT_LOG("DisconnectSink");
-  BT_LOG(NS_ConvertUTF16toUTF8(aDeviceAddress).get());
+  BT_LOG("[B] %s, aConnect: %d, aDeviceAddress: %s", __FUNCTION__, aConnect, NS_ConvertUTF16toUTF8(aDeviceAddress).get());
 
   // Created rawPath for further use (in callback funciton)
   nsString path = GetObjectPathFromAddress(sAdapterPath, aDeviceAddress);
@@ -3076,26 +3029,33 @@ BluetoothDBusService::DisconnectSink(const nsAString& aDeviceAddress)
 
   BT_LOG("RawPath: %s", rawPath);
 
+  nsString command = NS_LITERAL_STRING("Connect");
+  SinkCallback callback = ConnectSinkCallback;
+  if (!aConnect) {
+    command.AssignLiteral("Disconnect");
+    callback = DisconnectSinkCallback;
+  }
+
   return dbus_func_args_async(mConnection,
                               -1,
-                              DisconnectSinkCallback,
+                              callback,
                               (void*)rawPath,
                               rawPath,
                               DBUS_SINK_IFACE,
-                              "Disconnect",
+                              NS_ConvertUTF16toUTF8(command).get(),
                               DBUS_TYPE_INVALID);
 }
 
 bool
-BluetoothDBusService::SuspendSink(const nsAString& aDeviceObjectPath,
-                                  BluetoothReplyRunnable* aRunnable)
+BluetoothDBusService::SuspendSink(const nsAString& aDeviceObjectPath)
 {
-  nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
+//  nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
   // TODO: Need a new callback here
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
                                   NULL,
-                                  (void*)runnable,
+//                                  (void*)runnable,
+                                  NULL,
                                   NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
                                   DBUS_SINK_IFACE,
                                   "Suspend",
@@ -3105,21 +3065,18 @@ BluetoothDBusService::SuspendSink(const nsAString& aDeviceObjectPath,
     return false;
   }
 
-  runnable.forget();
+//  runnable.forget();
   return ret;
 }
 
-// XXX: Why we need this function? Is it a DOMRequest?
 bool
-BluetoothDBusService::ResumeSink(const nsAString& aDeviceObjectPath,
-                                  BluetoothReplyRunnable* aRunnable)
+BluetoothDBusService::ResumeSink(const nsAString& aDeviceObjectPath)
 {
-  nsRefPtr<BluetoothReplyRunnable> runnable = aRunnable;
   // TODO: Need a new callback here
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
                                   NULL,
-                                  (void*)runnable,
+                                  NULL,
                                   NS_ConvertUTF16toUTF8(aDeviceObjectPath).get(),
                                   DBUS_SINK_IFACE,
                                   "Resume",
@@ -3129,7 +3086,6 @@ BluetoothDBusService::ResumeSink(const nsAString& aDeviceObjectPath,
     return false;
   }
 
-  runnable.forget();
   return ret;
 }
 
@@ -3170,7 +3126,6 @@ BluetoothDBusService::UpdatePlayStatus(uint32_t aDuration,
 
   //TODO:
   //Still have problem with control.c duration, position is abnormal
-  //TODO:Need to handle callback to check return value if dbus failed
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
                                   GetVoidCallback,
@@ -3246,7 +3201,6 @@ BluetoothDBusService::UpdateMetaData(const nsAString& aTitle,
   BT_LOG("totalmediacount: %s", tempTotalmediacount);
   BT_LOG("playtime: %s", tempPlaytime);
 
-  //TODO:Need to handle callback to check return value if dbus failed
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
                                   GetVoidCallback,

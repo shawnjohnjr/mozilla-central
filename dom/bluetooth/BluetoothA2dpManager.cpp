@@ -187,7 +187,7 @@ BluetoothA2dpManager::Connect(const nsAString& aDeviceAddress)
   BluetoothService* bs = BluetoothService::Get();
   NS_ENSURE_TRUE(bs, false);
 
-  if (!bs->ConnectSink(aDeviceAddress)) {
+  if (!bs->ConnectDisconnectSink(true, aDeviceAddress)) {
     BT_LOG("[A2DP] Failed to start connecting to sink");
     DispatchConnectionStatus(aDeviceAddress, false);
     return false;
@@ -208,7 +208,7 @@ BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
   }
 
   BluetoothService* bs = BluetoothService::Get();
-  if (!bs->DisconnectSink(aDeviceAddress)) {
+  if (!bs->ConnectDisconnectSink(false, aDeviceAddress)) {
     BT_LOG("[A2DP] Disconnect failed!");
     return;
   }

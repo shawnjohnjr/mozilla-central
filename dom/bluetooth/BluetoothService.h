@@ -261,10 +261,7 @@ public:
                        BluetoothReplyRunnable* aRunnable) = 0;
 
   virtual bool
-  ConnectSink(const nsAString& aDeviceObjectPath) = 0;
-
-  virtual bool
-  DisconnectSink(const nsAString& aDeviceObjectPath) = 0;
+  ConnectDisconnectSink(bool aConnect, const nsAString& aDeviceObjectPath) = 0;
 
   virtual nsresult
   UpdatePlayStatus(uint32_t aDuration,
