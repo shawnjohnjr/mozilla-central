@@ -147,10 +147,10 @@ public:
                        BluetoothReplyRunnable* aRunnable) MOZ_OVERRIDE;
 
   virtual bool
-  ConnectSink(const nsAString& aDeviceAddress) MOZ_OVERRIDE;
+  ConnectDisconnectSink(bool aConnect, const nsAString& aDeviceAddress) MOZ_OVERRIDE;
 
   virtual bool
-  DisconnectSink(const nsAString& aDeviceAddress) MOZ_OVERRIDE;
+  ResumeSuspendSink(bool aResume, const nsAString& aDeviceAddress) MOZ_OVERRIDE;
 
   virtual nsresult
   UpdatePlayStatus(uint32_t aDuration,

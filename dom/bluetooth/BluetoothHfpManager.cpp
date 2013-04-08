@@ -263,7 +263,8 @@ BluetoothHfpManagerObserver::Observe(nsISupports* aSubject,
 NS_IMPL_ISUPPORTS1(BluetoothHfpManagerObserver, nsIObserver)
 
 void
-BluetoothHfpManager::NotifyAudioManager(const nsAString& aAddress) {
+BluetoothHfpManager::NotifyAudioManager(const nsAString& aAddress)
+{
   // Whenever we get RFCOMM connected, we shall always notify audio
   // manager to do setDeviceConnectionState
   MOZ_ASSERT(NS_IsMainThread());
@@ -283,7 +284,6 @@ BluetoothHfpManager::NotifyAudioManager(const nsAString& aAddress) {
       return;
     }
   }
-
 }
 
 class SendRingIndicatorTask : public Task
