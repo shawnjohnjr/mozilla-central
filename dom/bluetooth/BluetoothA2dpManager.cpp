@@ -163,13 +163,14 @@ BluetoothA2dpManager::HandleSinkStatusChanged(const nsAString& aDeviceAddress,
                                               const nsAString& aState)
 {
   if (aState.EqualsLiteral("connected")) {
-    BT_LOG("A2DP connected!! Route path to a2dp");
+    BT_LOG("A2DP connected. Route path to a2dp");
     BT_LOG("Currnet device: %s",NS_ConvertUTF16toUTF8(mDeviceAddress).get());
     NotifyAudioManager(aDeviceAddress);
   } else if (aState.EqualsLiteral("playing")) {
     BT_LOG("Start streaming Route path to a2dp");
   } else if (aState.EqualsLiteral("disconnected")) {
-
+    BT_LOG("A2DP disconnected. Route path to speaker");
+    NotifyAudioManager(NS_LITERAL_STRING(""));
   }
   mCurrentSinkState = ConvertSinkStringToState(aState);
 }
@@ -250,7 +251,7 @@ BluetoothA2dpManager::HandleCallStateChanged(uint16_t aCallState)
   switch (aCallState) {
     case nsITelephonyProvider::CALL_STATE_INCOMING:
     case nsITelephonyProvider::CALL_STATE_CONNECTED:
-      BT_LOG("BluetoothA2dpManager: CALL_STATE_INCOMING/CALL_STATE_CONNECTED, disable AVRCP");
+      BT_LOG("BluetoothA2dpManager: CALL_STATE_INCOMING/CALL_STATE_CONNECTED");
       // PHONE_STATE RINGING or OFFHOOK
       // We have to suspend a2dp stream, it is compliant with the Bluetooth SIG AV+HFP
       // Whitepaper. We shall not have A2DP in streaming state while HFP manager
@@ -259,9 +260,9 @@ BluetoothA2dpManager::HandleCallStateChanged(uint16_t aCallState)
       break;
       //PHONE_STATE IDLE
     case nsITelephonyProvider::CALL_STATE_DISCONNECTED:
-      // IDLE state, we shall do delay resuming sink, there are many chipsets on
-      // Bluetooth headsets cannot handle A2DP sink resuming stream too fast,
-      // while SCO state is in disconnecting
+      // IDLE state, we shall immediately do delay resuming sink, there are many
+      // chipsets on Bluetooth headsets cannot handle A2DP sink resuming stream
+      // too fast, while SCO state is in disconnecting
       BT_LOG("BluetoothA2dpManager: CALL_STATE_DISCONNECTED, delay resume sink");
       SetParameter(NS_LITERAL_STRING("A2dpSuspended=false"));
       break;
