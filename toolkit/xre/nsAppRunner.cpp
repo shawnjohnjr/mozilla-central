@@ -2997,6 +2997,7 @@ XREMain::XRE_mainInit(bool* aExitFlag)
     return 1;
 
 #ifdef MOZ_CRASHREPORTER
+  SaveToEnv("MOZ_CRASHREPORTER=1");
   if (EnvHasValue("MOZ_CRASHREPORTER")) {
     mAppData->flags |= NS_XRE_ENABLE_CRASH_REPORTER;
   }
