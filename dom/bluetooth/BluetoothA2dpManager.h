@@ -45,18 +45,6 @@ private:
   BluetoothA2dpState mCurrentSinkState;
   nsString mDeviceAddress;
   bool mConnected;
-  //AVRCP 1.3 fields
-  nsString mTrackName;
-  nsString mTrackNumber;
-  nsString mArtist;
-  nsString mAlbum;
-  nsString mTotalMediaCount;
-  nsString mPlaytime;
-  uint32_t mDuration;
-  uint32_t mPosition;
-  uint32_t mPlayStatus;
-  long mReportTime;
-  //TODO:Add RIL listener for suspend/resume A2DP
   //For the reason HFP/A2DP usage switch, we need to force suspend A2DP
   nsAutoPtr<BluetoothTelephonyListener> mListener;
 };

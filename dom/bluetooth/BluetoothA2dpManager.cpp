@@ -127,7 +127,7 @@ BluetoothA2dpManager::NotifyAudioManager(const nsAString& aAddress)
       NS_WARNING("Failed to notify bluetooth-a2dp-status-changed observsers!");
       return;
     }
-    force = am->FORCE_BT_A2DP;
+    force = am->FORCE_NONE;
   } else {
     if (NS_FAILED(obs->NotifyObservers(nullptr,
                                        BLUETOOTH_A2DP_STATUS_CHANGED,
@@ -135,8 +135,9 @@ BluetoothA2dpManager::NotifyAudioManager(const nsAString& aAddress)
       NS_WARNING("Failed to notify bluetooth-a2dp-status-changed observsers!");
       return;
     }
-    force = am->FORCE_NONE;
+    force = am->FORCE_BT_A2DP;
   }
+  //Make AudioManager switch audio output to A2DP
   am->SetForceForUse(am->USE_MEDIA, force);
 }
 
@@ -167,9 +168,10 @@ BluetoothA2dpManager::HandleSinkStatusChanged(const nsAString& aDeviceAddress,
     NotifyAudioManager(aDeviceAddress);
   } else if (aState.EqualsLiteral("playing")) {
     BT_LOG("Start streaming Route path to a2dp");
+  } else if (aState.EqualsLiteral("disconnected")) {
+
   }
   mCurrentSinkState = ConvertSinkStringToState(aState);
-  //TODO: Need to check Sink state and do more stuffs
 }
 
 bool
@@ -213,10 +215,14 @@ BluetoothA2dpManager::Disconnect(const nsAString& aDeviceAddress)
     return;
   }
 
-  NotifyAudioManager(NS_LITERAL_STRING("")); 
+  NotifyAudioManager(NS_LITERAL_STRING(""));
   BT_LOG("[A2DP] Disconnect successfully!");
 }
 
+/**
+ * This function is for AVRCP 1.3 GetPlayStatus function, it is required to have
+ * Music player application to reply current AVRCP Play status.
+ */
 void
 BluetoothA2dpManager::NotifyMusicPlayStatus()
 {
@@ -272,11 +278,4 @@ BluetoothA2dpManager::GetConnectionStatus()
 {
   return mCurrentSinkState == BluetoothA2dpState::SINK_CONNECTED;
 }
-
-/*bool
-BluetoothA2dpManager::Listen()
-{
-  BT_LOG("[A2DP] Listen");
-  return true;
-}*/
 

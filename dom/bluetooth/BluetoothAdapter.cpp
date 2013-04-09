@@ -438,7 +438,7 @@ BluetoothAdapter::GetUuids(JSContext* aCx, JS::Value* aValue)
   else {
     NS_WARNING("UUIDs not yet set!\n");
     return NS_ERROR_FAILURE;
-  }    
+  }
   return NS_OK;
 }
 
@@ -466,7 +466,7 @@ BluetoothAdapter::SetDiscoverable(const bool aDiscoverable,
   BluetoothNamedValue property(NS_LITERAL_STRING("Discoverable"), value);
   return SetProperty(GetOwner(), property, aRequest);
 }
- 
+
 NS_IMETHODIMP
 BluetoothAdapter::SetDiscoverableTimeout(const uint32_t aDiscoverableTimeout,
                                          nsIDOMDOMRequest** aRequest)
@@ -802,7 +802,6 @@ BluetoothAdapter::SendPlayStatus(const JS::Value& aValue, nsIDOMDOMRequest** aRe
 NS_IMETHODIMP
 BluetoothAdapter::SendNotification(uint16_t aEventId, uint16_t aData, nsIDOMDOMRequest** aRequest)
 {
-  BT_LOG("SendNotification");
   BT_LOG("Notification: %d, %d", aEventId, aData);
 
   nsCOMPtr<nsIDOMDOMRequest> req;

@@ -348,7 +348,6 @@ public:
     BluetoothA2dpManager* a2dp = BluetoothA2dpManager::Get();
     NS_ENSURE_TRUE(a2dp, NS_ERROR_FAILURE);
     a2dp->NotifyMusicPlayStatus();
-    //TODO: Move it when gaia interface is ready
     return NS_OK;
   }
 };
@@ -547,8 +546,8 @@ AgentEventFilter(DBusConnection *conn, DBusMessage *msg, void *data)
 
       v = parameters;
     }
-    // For A2DP, we directly allow incoming a2dp connection, to improve 
-	// Bluetooth security, it is supposed to have "Authorization" dialog.
+    // For A2DP, we directly allow incoming a2dp connection, to improve
+    // Bluetooth security, it is supposed to have "Authorization" dialog.
     DBusMessage *reply = dbus_message_new_method_return(msg);
     if (!reply) {
       errorStr.AssignLiteral("Memory can't be allocated for the message.");
@@ -1763,6 +1762,8 @@ EventFilter(DBusConnection* aConn, DBusMessage* aMsg, void* aData)
     BT_LOG("[CTL Interface] PropertyChanged");
     return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
   } else if (dbus_message_is_signal(aMsg, DBUS_CTL_IFACE, "GetPlayStatus")) {
+    // When receiving GetPlayStatus signal, we need to notify Music application
+    // in order to reply true play status
     BT_LOG("[CTL Interface] GetPlayStatus");
     nsRefPtr<UpdatePlayStatusTask> b = new UpdatePlayStatusTask();
     if (NS_FAILED(NS_DispatchToMainThread(b))) {
@@ -3091,7 +3092,6 @@ BluetoothDBusService::ResumeSuspendSink(bool aResume, const nsAString& aDeviceAd
   return ret;
 }
 
-//AVRCP 1.3 feature
 nsresult
 BluetoothDBusService::UpdatePlayStatus(uint32_t aDuration,
                                        uint32_t aPosition,
@@ -3126,8 +3126,6 @@ BluetoothDBusService::UpdatePlayStatus(uint32_t aDuration,
   char* rawPath = new char[path.Length() + 1];
   strcpy(rawPath, NS_ConvertUTF16toUTF8(path).get());
 
-  //TODO:
-  //Still have problem with control.c duration, position is abnormal
   bool ret = dbus_func_args_async(mConnection,
                                   -1,
                                   GetVoidCallback,
@@ -3177,7 +3175,6 @@ BluetoothDBusService::UpdateMetaData(const nsAString& aTitle,
 
   nsAutoString deviceAddress;
   a2dp->GetConnectedSinkAddress(deviceAddress);
- 
   nsString path = GetObjectPathFromAddress(sAdapterPath, deviceAddress);
   char* rawPath = new char[path.Length() + 1];
   strcpy(rawPath, NS_ConvertUTF16toUTF8(path).get());
