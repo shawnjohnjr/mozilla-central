@@ -57,6 +57,7 @@ extern bool gBluetoothDebugFlag;
  */
 #define BLUETOOTH_SCO_STATUS_CHANGED_ID      "bluetooth-sco-status-changed"
 #define BLUETOOTH_A2DP_STATUS_CHANGED_ID     "bluetooth-a2dp-status-changed"
+#define BLUETOOTH_HID_STATUS_CHANGED_ID     "bluetooth-a2dp-status-changed"
 
 // Bluetooth address format: xx:xx:xx:xx:xx:xx (or xx_xx_xx_xx_xx_xx)
 #define BLUETOOTH_ADDRESS_LENGTH 17

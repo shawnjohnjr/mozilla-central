@@ -21,6 +21,7 @@
 #include "BluetoothA2dpManager.h"
 #include "BluetoothHfpManager.h"
 #include "BluetoothOppManager.h"
+#include "BluetoothHidManager.h"
 #include "BluetoothReplyRunnable.h"
 #include "BluetoothUnixSocketConnector.h"
 #include "BluetoothUtils.h"
@@ -66,6 +67,7 @@ USING_BLUETOOTH_NAMESPACE
 #define DBUS_DEVICE_IFACE BLUEZ_DBUS_BASE_IFC   ".Device"
 #define DBUS_AGENT_IFACE BLUEZ_DBUS_BASE_IFC    ".Agent"
 #define DBUS_SINK_IFACE BLUEZ_DBUS_BASE_IFC     ".AudioSink"
+#define DBUS_INPUT_IFACE BLUEZ_DBUS_BASE_IFC     ".Input"
 #define BLUEZ_DBUS_BASE_PATH      "/org/bluez"
 #define BLUEZ_DBUS_BASE_IFC       "org.bluez"
 #define BLUEZ_ERROR_IFC           "org.bluez.Error"
@@ -157,6 +159,7 @@ static nsString sAdapterPath;
 typedef void (*UnpackFunc)(DBusMessage*, DBusError*, BluetoothValue&, nsAString&);
 typedef bool (*FilterFunc)(const BluetoothValue&);
 typedef void (*SinkCallback)(DBusMessage*, void*);
+typedef void (*InputCallback)(DBusMessage*, void*);
 
 static bool
 GetConnectedDevicesFilter(const BluetoothValue& aValue)
@@ -518,6 +521,22 @@ SinkConnectCallback(DBusMessage* aMsg, void* aParam)
 
 static void
 SinkDisconnectCallback(DBusMessage* aMsg, void* aParam)
+{
+#ifdef DEBUG
+  CheckForSinkError(false, aMsg, aParam);
+#endif
+}
+
+static void
+InputConnectCallback(DBusMessage* aMsg, void* aParam)
+{
+#ifdef DEBUG
+  CheckForSinkError(true, aMsg, aParam);
+#endif
+}
+
+static void
+InputDisconnectCallback(DBusMessage* aMsg, void* aParam)
 {
 #ifdef DEBUG
   CheckForSinkError(false, aMsg, aParam);
@@ -1014,6 +1033,16 @@ AgentEventFilter(DBusConnection *conn, DBusMessage *msg, void *data)
     dbus_message_ref(msg);
 
     v = parameters;
+    // For A2DP/HID, we directly allow incoming a2dp connection, to improve
+    // Bluetooth security, it is supposed to have "Authorization" dialog.
+    DBusMessage *reply = dbus_message_new_method_return(msg);
+    if (!reply) {
+      errorStr.AssignLiteral("Memory can't be allocated for the message.");
+    } else {
+      dbus_connection_send(conn, reply, NULL);
+      dbus_message_unref(reply);
+    }
+
   } else if (dbus_message_is_method_call(msg, DBUS_AGENT_IFACE,
                                          "RequestConfirmation")) {
     // This method gets called when the service daemon needs to confirm a
@@ -1833,6 +1862,39 @@ BluetoothDBusService::SendSinkMessage(const nsAString& aDeviceAddress,
 }
 
 nsresult
+BluetoothDBusService::SendInputMessage(const nsAString& aDeviceAddress,
+                                      const nsAString& aMessage)
+{
+  MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(mConnection);
+
+  NS_ENSURE_TRUE(IsReady(), NS_ERROR_FAILURE);
+
+  InputCallback callback;
+  if (aMessage.EqualsLiteral("Connect")) {
+    callback = InputConnectCallback;
+  } else if (aMessage.EqualsLiteral("Disconnect")) {
+    callback = InputDisconnectCallback;
+  } else {
+    BT_WARNING("Unknown input message");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsString objectPath = GetObjectPathFromAddress(sAdapterPath, aDeviceAddress);
+  bool ret = dbus_func_args_async(mConnection,
+                                  -1,
+                                  callback,
+                                  nullptr,
+                                  NS_ConvertUTF16toUTF8(objectPath).get(),
+                                  DBUS_INPUT_IFACE,
+                                  NS_ConvertUTF16toUTF8(aMessage).get(),
+                                  DBUS_TYPE_INVALID);
+
+  NS_ENSURE_TRUE(ret, NS_ERROR_FAILURE);
+  return NS_OK;
+}
+
+nsresult
 BluetoothDBusService::StopDiscoveryInternal(BluetoothReplyRunnable* aRunnable)
 {
   return SendDiscoveryMessage("StopDiscovery", aRunnable);
@@ -2447,6 +2509,11 @@ BluetoothDBusService::Connect(const nsAString& aDeviceAddress,
   } else if (aProfileId == BluetoothServiceClass::OBJECT_PUSH) {
     BluetoothOppManager* opp = BluetoothOppManager::Get();
     opp->Connect(aDeviceAddress, aRunnable);
+  } else if (aProfileId == BluetoothServiceClass::HID) {
+    BT_LOG("HID input connection launch!");
+    BluetoothHidManager* hid = BluetoothHidManager::Get();
+    hid->Connect(aDeviceAddress);
+
   } else {
     DispatchBluetoothReply(aRunnable, BluetoothValue(),
                            NS_LITERAL_STRING("UnknownProfileError"));

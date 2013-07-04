@@ -153,6 +153,9 @@ public:
   virtual nsresult
   SendSinkMessage(const nsAString& aDeviceAddresses,
                   const nsAString& aMessage) MOZ_OVERRIDE;
+  virtual nsresult
+  SendInputMessage(const nsAString& aDeviceAddresses,
+                  const nsAString& aMessage) MOZ_OVERRIDE;
 
 private:
   nsresult SendGetPropertyMessage(const nsAString& aPath,
